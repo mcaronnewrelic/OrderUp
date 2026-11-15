@@ -41,6 +41,18 @@
         @if (cp.learn) {
           <p class="checkpoint-learn"><strong>Learn:</strong> {{ cp.learn }}</p>
         }
+        @if (!config.showCallouts()) {
+          <div class="checkpoint-hidden-note" role="note">
+            <p>
+              <i class="fas fa-eye-slash me-1" aria-hidden="true"></i>
+              The evidence query and the question for this checkpoint appear with
+              <strong>Behind the scenes</strong>, which is off. Your answer opens the next checkpoint.
+            </p>
+            <button type="button" class="btn btn-sm btn-primary" (click)="config.toggleCallouts()">
+              <i class="fas fa-eye me-1" aria-hidden="true"></i>Show the evidence and question
+            </button>
+          </div>
+        }
         @if (cp.nrql) {
           <app-nr-callout [title]="'Checkpoint ' + (i + 1) + ' evidence'" [nrql]="cp.nrql">
             <app-nr-check

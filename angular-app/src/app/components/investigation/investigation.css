@@ -98,3 +98,17 @@
   margin: 0.25rem 0 0.5rem;
   color: #1ce783;
 }
+
+/* Shown when a live checkpoint's evidence and question are hidden behind
+   "Behind the scenes", so the page is never a silent dead end. */
+.checkpoint-hidden-note {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px dashed var(--ou-nr-green-dark);
+  border-radius: 0.5rem;
+  background: var(--ou-primary-soft);
+}
+
+.checkpoint-hidden-note p {
+  margin: 0 0 0.5rem;
+}

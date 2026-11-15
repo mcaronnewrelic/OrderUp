@@ -935,34 +935,37 @@ export const INVESTIGATIONS: InvestigationDef[] = [
     liveNote: 'Always live — this one is a property of the code, not an armed fault.',
     caseClosed:
       'The page that displays a dozen items costs one API call and two ' +
-      'queries; the single request that submits four items costs ten ' +
-      'queries — and every extra item in the cart adds two more. Same ' +
-      'app, opposite shapes: the read was written set-based, the write ' +
-      'loops. Those looped queries all queue on this app\u2019s single ' +
-      'database connection, which is its own investigation (I6, ' +
-      '\u201cOne connection for the whole restaurant\u201d). Real-world next ' +
-      'steps: return item ids with the menu and send them back at order ' +
-      'time (the endpoint already accepts them), batch what remains, ' +
-      'and watch datastore-span counts per transaction — a span count ' +
-      'that grows with input size is the N+1 smell, visible in the data ' +
-      'before users ever feel it.',
+      'queries; the single request that submits four items costs eleven ' +
+      'queries — seven that never change, plus one more for every item ' +
+      'in the cart. Same app, opposite shapes: the read was written ' +
+      'set-based, the write loops, one single-row INSERT per item. Those ' +
+      'looped queries all queue on this app’s single database ' +
+      'connection, which is its own investigation (I6, “One ' +
+      'connection for the whole restaurant”). Real-world next steps: ' +
+      'write the item rows with one multi-row INSERT, and watch ' +
+      'databaseCallCount per transaction — a count that grows with ' +
+      'input size is the N+1 smell, visible on every transaction before ' +
+      'users ever feel it. (An earlier version of this endpoint looked ' +
+      'every item up by name as well, which doubled the loop; sending the ' +
+      'item ids with the order, as the app does now, removed half of it.)',
     checkpoints: [
       {
         questionId: 'menu-api-calls',
         title: 'Count the calls behind one page',
         prompt:
-          'Start from the Restaurants page and open any restaurant\u2019s ' +
-          'menu. The page shows a dozen or so items — but look at what ' +
-          'your browser actually fetched to build it.\n\n' +
-          'Run the query: it lists every API request your session made ' +
-          'from the menu page, grouped by URL.',
+          'Start from the Restaurants page and open ONE restaurant’s ' +
+          'menu, once. The page shows a dozen or so items — but look ' +
+          'at what your browser actually fetched to build it.\n\n' +
+          'Run the query: it lists every restaurant API request your ' +
+          'session made, grouped by URL. The restaurant list is one URL; ' +
+          'each menu you opened is its own.',
         nrql:
-          "SELECT count(*) FROM AjaxRequest WHERE demoCode = '<code>' AND pageUrl LIKE '%/menu/%' SINCE 30 minutes ago FACET requestUrl LIMIT 20",
+          "SELECT count(*) FROM AjaxRequest WHERE demoCode = '<code>' AND requestUrl LIKE '%/api/restaurant%' SINCE 30 minutes ago FACET requestUrl LIMIT 20",
         learn:
           'One page view can fan out into many requests. FACET requestUrl ' +
           'turns "the page felt heavy" into a list you can count.',
         kind: 'choice',
-        question: 'How many API calls fetched the restaurant and its menu for that page?',
+        question: 'How many API calls fetched the restaurant and its menu for the menu you opened?',
         options: ['1', '2', '4', 'One per menu item'],
         answer: '1',
         proves: 'One request carried the whole page.',
@@ -975,27 +978,29 @@ export const INVESTIGATIONS: InvestigationDef[] = [
         questionId: 'menu-db-queries',
         title: 'Count the queries behind the call',
         prompt:
-          'Now the server side of that same call. In New Relic, open ' +
-          'APM → Transactions → the GET /api/restaurant/by-name ' +
-          'transaction → one of its traces, and count the datastore ' +
-          '(Postgres) spans. The query does the same count if you paste ' +
-          'in the trace id from that screen.',
+          'Now the server side of that same call. Every APM transaction ' +
+          'records how many database calls it made (databaseCallCount).\n\n' +
+          'Run the query: it lists each menu URL that has been requested, ' +
+          'with the fewest and the most database calls any of those ' +
+          'requests made. (A restaurant whose menu is failing shows none.)',
         nrql:
-          "SELECT count(*) FROM Span WHERE traceId = 'PASTE_TRACE_ID' AND category = 'datastore' SINCE 1 hour ago",
+          "SELECT count(*) AS 'Calls', min(databaseCallCount) AS 'Fewest DB calls', max(databaseCallCount) AS 'Most DB calls' FROM Transaction WHERE appName = 'OrderUp' AND name = 'WebTransaction/Expressjs/GET//api/restaurant/by-name/:name' FACET request.uri SINCE 1 day ago LIMIT 20",
         learn:
-          'A trace breaks one request into its spans. The datastore spans ' +
-          'are the database queries — counting them per transaction is ' +
-          'how fan-outs show up in APM.',
+          'databaseCallCount and databaseDuration sit on every transaction, ' +
+          'so a fan-out shows up as a count that grows with the input. ' +
+          '(A trace breaks the call into spans, one per query, but New ' +
+          'Relic keeps only a sample of traces, so the count is the ' +
+          'dependable evidence.)',
         kind: 'number',
-        question: 'How many database queries did that one API call run?',
+        question: 'How many database queries did one menu call run?',
         answer: 2,
         tolerance: 0,
         proves: 'A fixed two, however long the menu is.',
         reveal:
           'Two queries — one for the restaurant row, one for all of its ' +
-          'menu items — whether the menu has 4 items or 40. The read ' +
-          'side was written set-based: the count does not grow with the ' +
-          'data it returns.',
+          'menu items — at every restaurant, whatever the length of ' +
+          'its menu. The read side was written set-based: the count does ' +
+          'not grow with the data it returns.',
       },
       {
         questionId: 'order-prediction',
@@ -1017,77 +1022,84 @@ export const INVESTIGATIONS: InvestigationDef[] = [
         proves: 'That is the reasonable expectation. The next checkpoint tests it.',
         reveal:
           'A fair prediction — it is exactly how the menu read behaved. ' +
-          'Now test it: add exactly 4 items to your cart (any items, one ' +
-          'restaurant, your sample customer from Mission 1) and place ' +
-          'the order.',
+          'Now test it: add 4 different items to your cart (one of each, ' +
+          'so the cart has 4 lines; any items, one restaurant, your ' +
+          'sample customer from Mission 1) and place the order.',
       },
       {
         questionId: 'order-db-queries',
         title: 'Count the queries behind the order',
         prompt:
-          'Find your order\u2019s transaction — Mission 4\u2019s trick: ' +
-          'Transactions → POST /api/order, the one carrying your ' +
-          'requestId — open its trace and count the datastore spans, ' +
-          'or run the query with its trace id.',
+          'Find your order’s transaction: POST /api/order, carrying ' +
+          'your demoCode. Run the query — it lists your orders with ' +
+          'how many items each carried and how many database calls it ' +
+          'made. Read the row for your 4-item order.',
         nrql:
-          "SELECT count(*) FROM Span WHERE traceId = 'PASTE_TRACE_ID' AND category = 'datastore' SINCE 1 hour ago",
+          "SELECT timestamp, itemCount, databaseCallCount FROM Transaction WHERE appName = 'OrderUp' AND name = 'WebTransaction/Expressjs/POST//api/order' AND demoCode = '<code>' SINCE 1 hour ago",
         learn:
           'Same counting method as checkpoint 2, different transaction. ' +
           'Comparing like with like is what makes the next number mean ' +
           'something.',
         kind: 'number',
-        question: 'How many database queries did your 4-item order run?',
-        answer: 10,
-        tolerance: 2,
-        proves: 'Roughly ten — five times the menu read, inside one request.',
+        question: 'How many database calls did your 4-item order run?',
+        answer: 11,
+        tolerance: 1,
+        proves: 'Eleven — over five times the menu read, inside one request.',
         reveal:
-          'Counted: 1 to find your customer, 1 to insert the order, ' +
-          'and then per item — 1 to look the item up, 1 to insert it: ' +
-          '2 × 4 = 8, plus the fixed 2, makes 10 (a trace may also show ' +
-          'the transaction\u2019s BEGIN/COMMIT). The count grows with ' +
-          'the cart. That growth is the signature of an N+1.',
+          'Counted: BEGIN and COMMIT (2), find and update your customer ' +
+          '(2), read the restaurant and its menu to check the cart (2) ' +
+          'and insert the order (1) — seven calls that never change. ' +
+          'Then one INSERT per item: 4. Seven plus four makes eleven ' +
+          '(an armed “It’s not checkout” adds one more). ' +
+          'The count grows with the cart, one call per item. That growth ' +
+          'is the signature of an N+1.',
       },
       {
         questionId: 'repeating-queries',
         title: 'Name the loop',
         prompt:
-          'Read the statements on the spans in that same order trace. ' +
-          'Two of the four query shapes below repeat once for every ' +
-          'item in the cart; the other two run exactly once.',
-        kind: 'multi',
-        question: 'Which queries repeat once per item?',
+          'Seven of the order’s calls are the same whether you buy ' +
+          'one item or forty. Exactly one kind of statement runs once for ' +
+          'every item in the cart.\n\n' +
+          'To see the statements, open a POST /api/order trace in APM and ' +
+          'read the datastore spans (New Relic keeps only a sample of ' +
+          'traces, so try a few). Or reason from the counts: which of the ' +
+          'statements below could be the one that grows?',
+        kind: 'choice',
+        question: 'Which statement runs once for every item in the cart?',
         options: [
-          'Look up the menu item by name',
           'Insert the order item row',
           'Find the customer by name',
           'Insert the order row',
+          'Read the restaurant and its menu',
         ],
-        answer: ['Look up the menu item by name', 'Insert the order item row'],
-        proves: 'The loop is in the order code: lookup + insert, per item.',
+        answer: 'Insert the order item row',
+        proves: 'The loop is in the order code: one single-row insert per item.',
         reveal:
-          'Exactly those two. And the lookup is the galling one: the ' +
-          'server looks each item up by name because the menu response ' +
-          'never included item ids — even though the order endpoint ' +
-          'already accepts a menu_item_id. Half the loop exists because ' +
-          'of a field that never made the trip.',
+          'The order-item insert, once per item. The server reads the ' +
+          'restaurant’s whole menu once to check the cart (and the ' +
+          'cart carries item ids, so there is no per-item lookup — an ' +
+          'earlier version looked every item up by name, which doubled the ' +
+          'loop). What is left is single-row inserts in a loop: n items, n ' +
+          'statements, where one multi-row INSERT would do.',
       },
       {
         questionId: 'verdict',
         title: 'The verdict',
         prompt:
           'You have counted both layers. The menu page: 1 call, 2 ' +
-          'queries, fixed. The order: 1 call, ~2 queries per item, ' +
-          'growing. Close the case.',
+          'queries, fixed. The order: 1 call, 7 fixed queries plus 1 ' +
+          'per item, growing. Close the case.',
         kind: 'choice',
         question: 'Which layer has the real N+1, and what is the fix?',
         options: [
           'The menu page — it should batch its API calls',
-          'The order endpoint — fetch all items in one query (or send their ids) and write the rows in one statement',
+          'The order endpoint — write all the item rows with one multi-row INSERT',
           'Neither — a query per item is normal and harmless',
           'The browser agent — it is over-reporting spans',
         ],
         answer:
-          'The order endpoint — fetch all items in one query (or send their ids) and write the rows in one statement',
+          'The order endpoint — write all the item rows with one multi-row INSERT',
         proves: 'Case ready to close.',
         reveal: 'Verdict recorded. The summary below is the whole case in one paragraph.',
       },

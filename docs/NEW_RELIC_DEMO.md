@@ -18,6 +18,8 @@ Green dashed boxes on the pages show the New Relic data that page creates, with 
 
 The **Missions** page shows each visitor's progress through the five missions, and the **Investigations** page holds the longer problems an instructor can arm (see below). The `/instructor` page, which is not linked from the menu, arms planned failures and investigations for everyone at once.
 
+On the Investigations page, the investigations that are live come first (the armed one, plus any that are always live). Each live checkpoint's evidence query and question are part of "Behind the scenes": with it off, the checkpoint shows a notice with a button that switches it on, because the answer is what opens the next checkpoint.
+
 **Show or hide them** with "Behind the scenes" in the header, or add `?callouts=1` (or `0`) to any URL for one visit. The choice is saved in the browser. They start hidden; change `CALLOUTS_SHOWN_BY_DEFAULT` in `angular-app/src/app/nr-config.ts` to start shown. With them on, the header also shows a short note if the browser cannot reach New Relic's agent hosts (`js-agent.newrelic.com` or `bam.nr-data.net`), which is the usual reason that browser queries come back empty on a machine behind an ad blocker or DNS filter.
 
 **Add one** to any page:

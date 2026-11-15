@@ -713,7 +713,23 @@ derived from the code, not assumed: the menu read is 1 API call and 2
 database queries (restaurant row + items, fixed); a 4-item order is 10
 datastore queries (customer + order + 2 per item), with the check's
 tolerance absorbing whether a given trace shows BEGIN/COMMIT spans —
-confirm once against a live staging trace. I2 follows, bringing the
+confirm once against a live staging trace.
+
+**Update (2026-11-15), I3 re-measured against live data.** The numbers
+above were from the code as it was then, and three things had changed.
+(1) The order route now validates the cart against the restaurant's menu
+(two set-based reads), and the cart sends item ids, so the per-item lookup
+by name is gone: an order is 7 calls that never change (BEGIN, COMMIT,
+customer select and update, the restaurant, its menu items, the order
+insert) plus 1 insert per item — 11 for 4 distinct items, not 10; the only
+statement that repeats is the order-item insert. (2) Only a sample of traces
+keep their `Span` events (health checks use up the sampling budget), so
+checkpoints 2 and 4 now read `databaseCallCount` from `Transaction`, which
+every transaction carries. (3) The browser agent labels a menu request with
+the page the visitor was on when it started, so checkpoint 1's
+`pageUrl LIKE '%/menu/%'` matched nothing; it now filters on `requestUrl`.
+`server/order-queries.test.js` pins the 5-plus-one-per-item shape of
+`createOrder`. I2 follows, bringing the
 first arm switch and the §7 banner naming the live investigation.
  I2 built (2026-11-01): `DEMO_DB_SLOW_ORDER_QUERY` arms a pg_sleep
 inside the order transaction (env > persisted manual override via

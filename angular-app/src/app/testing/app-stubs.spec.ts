@@ -30,7 +30,7 @@ export function createAppStubs() {
     markTried: jasmine.createSpy('markTried'),
     markFound: jasmine.createSpy('markFound'),
     recordAttempt: jasmine.createSpy('recordAttempt'),
-    isSolved: () => false,
+    isSolved: (_mission: string, _question: string): boolean => false,
     progress: () => ({ attempts: 0, solved: false }),
   };
 
