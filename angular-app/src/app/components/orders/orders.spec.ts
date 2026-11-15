@@ -83,7 +83,7 @@ describe('OrdersComponent', () => {
 
   it('looks orders up by the customer phone and lists the newest first', () => {
     render();
-    expect(orderService.getOrdersByCustomerPhone).toHaveBeenCalledWith(TEST_CUSTOMER.phone);
+    expect(orderService.getOrdersByCustomerPhone).toHaveBeenCalledWith(TEST_CUSTOMER.phone, 'OU-TEST');
     expect(
       orderCards().map((card) => card.querySelector('.restaurant-name')!.textContent!.trim()),
     ).toEqual(['Curry Up', 'Angular Pizza']);

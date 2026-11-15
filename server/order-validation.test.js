@@ -23,6 +23,7 @@ function createCheckout(
     events: [],
     metricValues: [],
     attributes: {},
+    userIds: [],
     sequence: [],
     logs: [],
     databaseChecks: 0,
@@ -133,7 +134,9 @@ function createCheckout(
       addCustomAttributes(attributes) {
         Object.assign(calls.attributes, attributes);
       },
-      setUserID() {},
+      setUserID(userID) {
+        calls.userIds.push(userID);
+      },
       recordMetric(name, value) {
         calls.metrics++;
         calls.metricValues.push({ name, value });
@@ -486,6 +489,29 @@ test("restaurant socket-failure middleware runs before restaurant handlers witho
   assert.equal(orders.status, 200);
   await assert.rejects(fetch(`${url}/api/restaurant`), TypeError);
   assert.equal(restaurantReads, 0);
+});
+
+test("order lookup is tagged with the visitor's demoCode userID, falling back to phone", async (context) => {
+  const checkout = createCheckout(true, { realHttp: true });
+  const url = await serveApp(checkout.app, context);
+  const lookup = (query) =>
+    fetch(`${url}/api/orders/customer/phone/555-0100${query}`).then((response) => {
+      assert.equal(response.status, 200);
+    });
+
+  await lookup("?demoCode=OU-AB12");
+  await lookup("?demoCode=SIM-9Z9Z");
+  await lookup("");
+  await lookup("?demoCode=not-a-code");
+  await lookup("?demoCode=OU-AB12&demoCode=OU-CD34");
+
+  assert.deepEqual(checkout.calls.userIds, [
+    "user_ou_ab12",
+    "user_sim_9z9z",
+    "user_phone_5550100",
+    "user_phone_5550100",
+    "user_phone_5550100",
+  ]);
 });
 
 for (const databaseMode of [false, true]) {

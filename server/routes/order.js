@@ -2,6 +2,8 @@ const { Router } = require("express");
 const { randomUUID } = require("node:crypto");
 const bodyParser = require("body-parser");
 
+const DEMO_CODE_PATTERN = /^(OU|SIM)-[A-Z0-9]{4}$/;
+
 // Utility function to generate consistent user IDs for New Relic tracking
 function generateUserID(customerData) {
   if (!customerData) return null;
@@ -298,9 +300,15 @@ module.exports = function createOrderRouter({
     const startTime = Date.now();
     const customerPhone = req.params.phone;
 
-    // Set New Relic user ID for transaction tracking
+    // The visitor's demoCode is their customer name everywhere else, so
+    // it gives this lookup the same userID as their order (Mission 4's
+    // Find query filters on it). Without a valid code, fall back to phone.
+    const demoCode =
+      typeof req.query.demoCode === "string" && DEMO_CODE_PATTERN.test(req.query.demoCode)
+        ? req.query.demoCode
+        : null;
     const userID = setNewRelicUserID(
-      { phone: customerPhone },
+      demoCode ? { name: demoCode, phone: customerPhone } : { phone: customerPhone },
       "orders_by_phone",
     );
 

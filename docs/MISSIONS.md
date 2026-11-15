@@ -74,9 +74,12 @@ not where you'd first look.
   for later orders.
 - **Mission 4**'s Find query filters on `userID`, which the server
   derives from the customer's name in `generateUserID`
-  (`server/index.js`): `'user_' + name.toLowerCase().replace(/[^a-z0-9]/g, '_')`.
-  The client mirrors that derivation from the demoCode to fill the
-  callout's `<userId>` token. **If the server derivation changes, the
+  (`server/routes/order.js`): `'user_' + name.toLowerCase().replace(/[^a-z0-9]/g, '_')`.
+  The order lookup request carries the visitor's demoCode as
+  `?demoCode=`, which the server validates and uses as the name (without
+  a valid code it falls back to the phone, `user_phone_<digits>`, which
+  the query will not match). The client mirrors the derivation from the
+  demoCode to fill the callout's `<userId>` token. **If the server derivation changes, the
   query breaks silently** — change them together.
 - **Mission 5, incident code:** each click makes an `INC-XXXX` ticket in
   the browser (`how-it-works.ts`, `simulateError()`), sends it to

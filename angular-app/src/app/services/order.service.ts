@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Order } from '../models/order.model';
 
@@ -19,9 +19,11 @@ export class OrderService {
   }
 
   /**
-   * Get orders for a customer by their phone number (fallback)
+   * Get orders for a customer by their phone number (fallback). The
+   * demoCode lets the server tag the lookup with the visitor's userID.
    */
-  getOrdersByCustomerPhone(phone: string): Observable<Order[]> {
-    return this.http.get<Order[]>(`${this.apiUrl}/customer/phone/${encodeURIComponent(phone)}`);
+  getOrdersByCustomerPhone(phone: string, demoCode?: string): Observable<Order[]> {
+    const params = demoCode ? new HttpParams().set('demoCode', demoCode) : undefined;
+    return this.http.get<Order[]>(`${this.apiUrl}/customer/phone/${encodeURIComponent(phone)}`, { params });
   }
 }

@@ -21,10 +21,10 @@ import { OrderTrackerComponent } from '../order-tracker/order-tracker';
   styleUrls: ['./orders.css']
 })
 export class OrdersComponent implements OnInit {
-  // Scoped to this visitor's lookups: the server stamps each lookup
-  // transaction with userID = 'user_' + the customer's name normalised,
-  // and the name is the demoCode (spec section 2, Mission 4) - supplied
-  // to the callout as the <userId> token.
+  // Scoped to this visitor's lookups: the lookup request carries the
+  // demoCode, and the server stamps the transaction with
+  // userID = 'user_' + the code normalised (spec section 2, Mission 4) -
+  // supplied to the callout as the <userId> token.
   readonly ordersNrql =
     "SELECT timestamp, userID, operation, duration FROM Transaction WHERE operation = 'get_orders_by_phone' AND userID = '<userId>' SINCE 1 day ago";
 
@@ -88,7 +88,7 @@ export class OrdersComponent implements OnInit {
   }
 
   private loadOrdersByPhone(phone: string) {
-    this.orderService.getOrdersByCustomerPhone(phone).subscribe({
+    this.orderService.getOrdersByCustomerPhone(phone, this.identity.code()).subscribe({
       next: (orders) => {
         this.orders.set(orders);
         this.loading.set(false);
