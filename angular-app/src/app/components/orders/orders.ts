@@ -26,7 +26,7 @@ export class OrdersComponent implements OnInit {
   // userID = 'user_' + the code normalised (spec section 2, Mission 4) -
   // supplied to the callout as the <userId> token.
   readonly ordersNrql =
-    "SELECT timestamp, userID, operation, duration FROM Transaction WHERE operation = 'get_orders_by_phone' AND userID = '<userId>' SINCE 1 day ago";
+    "SELECT timestamp, userID, requestId, operation, duration FROM Transaction WHERE operation = 'get_orders_by_phone' AND userID = '<userId>' SINCE 1 day ago";
 
   readonly socketNrql =
     "SELECT timestamp, actionName, event, status, previousStatus, transport, msSinceTracked, closeCode, reason, orderId FROM PageAction WHERE appName = 'OrderUp' AND feature = 'order_tracker' AND demoCode = '<code>' SINCE 1 day ago";
