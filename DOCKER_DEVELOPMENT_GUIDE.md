@@ -1,6 +1,6 @@
 # FoodMe Docker Development Guide
 
-The quick start for running FoodMe on your machine. For what each file in `docker/` does, see [docker/README.md](./docker/README.md). When something breaks, see the [Docker Comprehensive Guide](./docs/troubleshooting/DOCKER_COMPREHENSIVE_GUIDE.md).
+The quick start for running OrderUp on your machine. For what each file in `docker/` does, see [docker/README.md](./docker/README.md). When something breaks, see the [Docker Comprehensive Guide](./docs/troubleshooting/DOCKER_COMPREHENSIVE_GUIDE.md).
 
 ## Quick start
 
@@ -57,8 +57,8 @@ What you changed decides what to run. The server code is copied into the image w
 | You changed | Run |
 |---|---|
 | Angular code (`angular-app/`) | `npm run build:angular`. No restart needed: `dist/` is mounted into the container. |
-| Server code (`server/`) | `docker-compose -f docker/docker-compose.dev-simple.yml up -d --build --force-recreate foodme` |
-| `.env` | `docker-compose -f docker/docker-compose.dev-simple.yml up -d --force-recreate foodme`. The file is read only when the container is created, so a plain restart does not pick up changes. |
+| Server code (`server/`) | `docker-compose --env-file .env -f docker/docker-compose.dev-simple.yml up -d --build --force-recreate orderup` |
+| `.env` | `docker-compose --env-file .env -f docker/docker-compose.dev-simple.yml up -d --force-recreate orderup`. The file is read only when the container is created, so a plain restart does not pick up changes. |
 | Database scripts in `db/init/` | `npm run docker:clean`, then start again. They only run when the database volume is first created. |
 
 From a Mac terminal, `npm run docker:dev:simple:build` covers all of the first three rows at once. It builds Angular in a `node:24` container, rebuilds the images and recreates the containers. The database volume is kept.
