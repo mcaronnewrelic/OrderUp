@@ -9,11 +9,11 @@ This project includes load testing capabilities using [Locust](https://locust.io
 
 ## Quick Start
 
-1. **Start the FoodMe application:**
+1. **Start the OrderUp application** (the load test targets `http://localhost:3000`, which the simple Docker setup publishes):
    ```bash
    npm start
    # or
-   ./deploy.sh -s
+   ./scripts/deploy.sh -s
    ```
 
 2. **Run load tests:**
@@ -21,7 +21,7 @@ This project includes load testing capabilities using [Locust](https://locust.io
    # Interactive web interface (recommended)
    npm run loadtest:web
    # or
-   ./deploy.sh -l
+   ./scripts/deploy.sh -l
    
    # Headless mode (10 users, 2 users/sec spawn rate, 60 seconds)
    npm run loadtest:headless
@@ -35,7 +35,7 @@ This project includes load testing capabilities using [Locust](https://locust.io
 - `npm run loadtest` - Start Locust with interactive CLI
 - `npm run loadtest:web` - Start Locust with web interface (http://localhost:8089)
 - `npm run loadtest:headless` - Run automated test (10 users, 60 seconds)
-- `./deploy.sh -l` - Run load tests via deploy script
+- `./scripts/deploy.sh -l` - Run load tests via deploy script
 
 ## Web Interface
 

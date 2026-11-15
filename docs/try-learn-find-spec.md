@@ -414,12 +414,12 @@ callout mode; the customer experience is untouched.
 `nri-postgresql` with `COLLECT_DB_LOCK_METRICS` and
 `COLLECT_BLOAT_METRICS` on (I7, I9) plus the custom queries emitting
 `database_size` and active/idle connection counts (I6);
-`pg_stat_statements` is preloaded by `cloudformation/install-foodme.sh`
+`pg_stat_statements` is preloaded by `cloudformation/install-orderup.sh`
 (the data source I8 stands on). Log forwarding originally covered
 **only the PM2 app logs** (the lines I5's "the app logs nothing"
 checkpoint leans on); the nginx files were parsed by the integration
 for metrics but their lines were never forwarded — the I5 build adds
-the nginx access and error files to `newrelic-integrations/foodme-logs.yml`,
+the nginx access and error files to `newrelic-integrations/orderup-logs.yml`,
 reaching the instance on the next stack/config pass. Postgres's own
 log file is still not forwarded (its path is instance-specific).
 

@@ -207,15 +207,17 @@ EOF
 run_security_check() {
     print_info "Running security validation..."
     
-    if [ -f "./validate-security.sh" ]; then
-        if ./validate-security.sh; then
+    local security_script
+    security_script="$(dirname "${BASH_SOURCE[0]}")/validate-security.sh"
+    if [ -f "$security_script" ]; then
+        if bash "$security_script"; then
             print_success "Security validation passed"
         else
             print_error "Security validation failed"
             exit 1
         fi
     else
-        print_warning "Security validation script not found (validate-security.sh)"
+        print_warning "Security validation script not found ($security_script)"
     fi
 }
 
@@ -233,9 +235,9 @@ show_deployment_status() {
     echo ""
     print_info "Next steps:"
     print_info "  • Start app: npm start"
-    print_info "  • Run tests: ./deploy.sh -l"
+    print_info "  • Run load tests: npm run deploy:test"
     print_info "  • View in New Relic: https://one.newrelic.com"
-    print_info "  • Docker deploy: npm run docker:with-secrets"
+    print_info "  • Docker (local): npm run docker:dev:simple"
 }
 
 # Start the application
@@ -263,7 +265,7 @@ run_load_test() {
     # Check if the application is running
     if ! curl -s http://localhost:3000 > /dev/null 2>&1; then
         print_error "Application is not running on http://localhost:3000"
-        print_info "Start the application first with: npm start or ./deploy.sh -s"
+        print_info "Start the application first with: npm start or npm run deploy:start"
         exit 1
     fi
     

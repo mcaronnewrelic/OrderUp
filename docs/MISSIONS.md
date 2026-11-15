@@ -10,7 +10,7 @@ any URL) and every page gains a callout that runs the same loop:
 - **Check yourself** — one question per stop, answered from the data.
 
 A progress strip across the top names the current mission and shows the
-five stops; the **Your journey** block on How It Works recaps state and,
+five stops; the **Missions** page (`/missions`) recaps state and,
 at 5 of 5, shows the completion block. None of this exists in customer
 mode — missions are a Behind-the-scenes-only layer over the unchanged
 ordering flow.
@@ -151,17 +151,16 @@ Exclusion recipes for queries:
   and `demoCode` — mirroring browser.nru.to's `DemoQuizAnswer` so the
   dashboard queries port directly. The local progress above is only
   the on-device view; the event stream is the record.
-- The §8 follow-on (not yet built — see the spec) adds a
-  knowledge-checks page over `OrderupQuizAnswer` to the scripted
-  dashboards; the hub's completion block links the OrderUp Overview
-  dashboard until that page exists.
+- The scripted OrderUp Overview dashboard has a **Knowledge checks**
+  page over `OrderupQuizAnswer`, and the Missions page's completion
+  block links to the dashboard.
 
 ## Instructor controls
 
 - **Arming a failure.** One scenario is armed at almost all times.
   Resolution order (`server/demo-failures.js`): `DEMO_FAILING_*`
-  environment > manual override (the panel at the top of How It
-  Works, or `GET/POST/DELETE /api/demo/failures`, persisted on the
+  environment > manual override (the `/instructor` page, or
+  `GET/POST/DELETE /api/demo/failures`, persisted on the
   instance) > a deterministic weekly rotation over the seed
   restaurants/items. The armed target is **deliberately exposed** —
   in `armedScenario`, the banner and the panel. Finding it is not
@@ -178,13 +177,14 @@ Exclusion recipes for queries:
 | Mission 1's event-type tracker                           | `angular-app/src/app/services/event-types.service.ts`                                   |
 | demoCode identity                                        | `angular-app/src/app/services/demo-identity.service.ts`                                 |
 | Progress strip                                           | `angular-app/src/app/components/mission-strip/`                                         |
+| Missions recap page, Investigations page, instructor page | `angular-app/src/app/components/{missions-page,investigations-page,instructor}/`        |
 | Callout (Try line, Find-click → found, token resolution) | `angular-app/src/app/components/nr-callout/`                                            |
 | Check component (`choice` / `multi` / `number` / `text`) | `angular-app/src/app/components/nr-check/`                                              |
 | Per-mission wiring                                       | the `customer`, `restaurants`, `menu`, `thank-you`, `orders`, `how-it-works` components |
 | Failure scenarios & message templates                    | `server/demo-failures.js`, `server/index.js`                                            |
 
 The full design record — rationale, the link-pattern investigation,
-and the unbuilt §8 dashboards and §11 Investigations — is
+and the §8 dashboards and §11 Investigations — is
 [the Try / Learn / Find / Check spec](./try-learn-find-spec.md).
 For the callouts' history and the planned-failure scenarios as
 originally sketched, see [NEW_RELIC_DEMO.md](./NEW_RELIC_DEMO.md).

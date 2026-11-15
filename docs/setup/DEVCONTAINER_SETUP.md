@@ -1,272 +1,60 @@
-# DevContainer & Docker Compose Configurations
+# Dev Container Setup
 
-This document explains how to use the different Docker Compose configurations available in the FoodMe project, especially when working in restricted environments like dev containers.
+OrderUp ships a VS Code dev container ([.devcontainer/](../../.devcontainer/)) so you can work without installing Node, Python or Docker tooling yourself.
 
-## 📋 Available Configurations
+## What you get
 
-### 1. Main Configuration (`docker-compose.yml`)
-**Purpose**: Production-ready setup with comprehensive monitoring
+`devcontainer.json` builds from the `javascript-node:24-bookworm` image and adds Python (for Locust), Git, zsh, and Docker access through **docker-outside-of-docker**: the container uses your host's Docker engine rather than running its own. After the container is created it runs `npm install` in the repository root and in `angular-app/`. Ports 3000, 3001, 80, 8089 and 5432 are forwarded to your machine.
 
-**Features**:
-- Full New Relic infrastructure monitoring with privileged access
-- Nginx reverse proxy with SSL support  
-- PostgreSQL database with health checks
-- Complete host system monitoring
-- Process-level metrics collection
+## Start
 
-**Best for**: 
-- Host development environments
-- CI/CD pipelines
-- Production deployments
-- Full monitoring requirements
+1. Open the folder in VS Code and choose **Reopen in Container**.
+2. Create your environment file and fill in at least `DB_PASSWORD` and `NEW_RELIC_LICENSE_KEY`:
+   ```bash
+   npm run setup:env
+   ```
+3. Build the website and start the simple Docker setup:
+   ```bash
+   npm run build:angular
+   npm run docker:dev:simple
+   ```
+4. Open http://localhost.
 
-### 2. DevContainer Configuration (`docker-compose.dev.yml`)
-**Purpose**: Simplified setup for restricted environments
+The Docker setups themselves are explained in the [Docker Development Guide](../../DOCKER_DEVELOPMENT_GUIDE.md). The two compose files in use are `docker/docker-compose.dev-simple.yml` and `docker/docker-compose.arm64.yml`.
 
-**Features**:
-- Basic New Relic monitoring without privileged access
-- Docker container monitoring only
-- No host filesystem access required
-- Compatible with GitHub Codespaces and VS Code dev containers
+You can also run the app without Docker inside the dev container (`npm run dev`). Without database settings it serves the restaurants from `server/data/restaurants.json` and keeps no order history in a database.
 
-**Best for**:
-- GitHub Codespaces
-- VS Code dev containers
-- Restricted development environments
-- Security-conscious setups
+## The "Mounts denied" problem
 
-### 3. Load Testing Configuration (`docker-compose.loadtest.yml`)
-**Purpose**: Isolated performance testing
+With docker-outside-of-docker, a bind mount such as `../dist:/dist` is resolved by the Docker engine on your **host**, but the compose file is read inside the container, where the workspace is under `/workspaces/`. The host has no such folder, so Docker answers `Mounts denied: The path /workspaces/... is not shared from the host`.
 
-**Features**:
-- Locust load testing framework
-- Configurable user simulation
-- Performance metrics collection
-- Network connectivity to main application
+Options, simplest first:
 
-**Best for**:
-- Performance testing
-- Load benchmarking
-- CI/CD performance validation
+- **Run the Docker commands from a terminal on your machine**, not inside the dev container. Use the dev container for editing, building Angular and running tests, and your host terminal for `npm run docker:dev:simple`.
+- **Skip the mounts.** The simple setup mounts `dist/` into the app, and the full setup mounts the host filesystem into the infrastructure agent. Remove or comment out those mounts for a dev-container-only run.
+- **Use the full setup only on the host.** Its infrastructure agent is privileged and mounts `/`, the Docker socket and `/var/run`, which a dev container cannot grant.
 
-## 🚀 Usage Instructions
+The earlier approach, a separate "devcontainer" compose file with a reduced New Relic agent, is in `docker/archive/docker-compose.devcontainer.yml` and is not maintained.
 
-### Using DevContainer Configuration
-
-#### Option 1: Override Configuration
-```bash
-# Start with dev container friendly settings
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-
-# Stop services
-docker compose -f docker-compose.yml -f docker-compose.dev.yml down
-```
-
-#### Option 2: NPM Scripts (Recommended)
-```bash
-# Start dev container setup
-npm run docker:compose:dev
-
-# View logs
-npm run docker:dev:logs
-
-# Stop services  
-npm run docker:dev:down
-```
-
-#### Option 3: Environment Variable
-```bash
-# Set environment preference
-export DOCKER_COMPOSE_ENV=dev
-
-# Use in scripts or automation
-if [ "$DOCKER_COMPOSE_ENV" = "dev" ]; then
-  docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-else
-  docker compose up -d
-fi
-```
-
-### Using Load Testing Configuration
-
-#### Quick Load Test
-```bash
-# Start load testing
-npm run docker:compose:loadtest
-
-# View test results
-npm run docker:loadtest:logs
-
-# Stop load testing
-npm run docker:loadtest:down
-```
-
-#### Custom Load Test Parameters
-```bash
-# Edit docker-compose.loadtest.yml to customize:
-# -u: number of users
-# -r: spawn rate (users per second)  
-# -t: test duration
-
-# Example: 10 users, 2 per second, 60 seconds
-docker compose -f docker-compose.loadtest.yml run --rm locust \
-  locust -f locustfile.py --host=http://foodme:3000 \
-  --headless -u 10 -r 2 -t 60s
-```
-
-## 🔧 Configuration Differences
-
-### New Relic Monitoring Comparison
-
-| Feature                | Main Config                          | DevContainer Config     |
-| ---------------------- | ------------------------------------ | ----------------------- |
-| **Container Name**     | `newrelic-infra`                     | `newrelic-infra-simple` |
-| **Privileged Access**  | ✅ `privileged: true`                 | ❌ Removed               |
-| **Host PID Namespace** | ✅ `pid: host`                        | ❌ Removed               |
-| **Process Monitoring** | ✅ `NRIA_ENABLE_PROCESS_METRICS=true` | ❌ `false`               |
-| **Host Filesystem**    | ✅ `/:/host:ro`                       | ❌ Docker socket only    |
-| **Network Mode**       | Custom bridge network                | `network_mode: bridge`  |
-| **Capabilities**       | ✅ `SYS_PTRACE`                       | ❌ None                  |
-
-### Volume Mounts Comparison
-
-**Main Configuration**:
-```yaml
-volumes:
-  - "/var/run/docker.sock:/var/run/docker.sock:ro"
-  - "/:/host:ro"  # Full host access
-  - "./newrelic-integrations:/etc/newrelic-infra/integrations.d:ro"
-```
-
-**DevContainer Configuration**:
-```yaml
-volumes:
-  - "/var/run/docker.sock:/var/run/docker.sock:ro"  # Docker only
-```
-
-## 🛠️ Troubleshooting
-
-### Common DevContainer Issues
-
-#### Permission Denied Errors
-```bash
-# If you see: "permission denied" or "operation not permitted"
-# Switch to dev configuration:
-npm run docker:compose:dev
-```
-
-#### Privileged Access Required
-```bash
-# If you see: "privileged access required"
-# Use the simplified monitoring:
-docker compose -f docker-compose.dev.yml up newrelic-infra-simple -d
-```
-
-#### Volume Mount Failures
-```bash
-# If host volume mounts fail, dev config uses minimal mounts:
-docker compose -f docker-compose.dev.yml logs newrelic-infra-simple
-```
-
-### Monitoring Verification
-
-#### Check New Relic Agent Status
-```bash
-# Main configuration
-docker compose logs newrelic-infra
-
-# DevContainer configuration  
-docker compose -f docker-compose.dev.yml logs newrelic-infra-simple
-```
-
-#### Verify Data Collection
-```bash
-# Check environment variables
-docker compose exec newrelic-infra env | grep NRIA
-
-# Check integration files
-docker compose exec newrelic-infra ls -la /etc/newrelic-infra/integrations.d/
-```
-
-## 📊 Monitoring Capabilities
-
-### What You Get with Each Configuration
-
-#### Main Configuration Monitoring
-- ✅ Host system metrics (CPU, memory, disk, network)
-- ✅ Process-level monitoring
-- ✅ Docker container metrics
-- ✅ Nginx integration (HTTP metrics)
-- ✅ PostgreSQL integration (database metrics)
-- ✅ Custom business metrics
-
-#### DevContainer Configuration Monitoring
-- ✅ Docker container metrics
-- ✅ Basic system metrics (limited)
-- ❌ Host process monitoring
-- ❌ Host filesystem metrics
-- ❌ Advanced integration data
-
-#### Load Testing Metrics
-- ✅ Request latency and throughput
-- ✅ Error rates and response codes
-- ✅ User simulation metrics
-- ✅ Performance over time
-
-## 🔐 Security Considerations
-
-### Why DevContainer Config is More Secure
-
-1. **No Privileged Access**: Reduces attack surface
-2. **Limited Host Access**: Only Docker socket, no filesystem
-3. **Process Isolation**: Cannot monitor host processes
-4. **Network Isolation**: Uses standard Docker networking
-
-### Production vs Development
-
-- **Production**: Use main configuration for comprehensive monitoring
-- **Development**: Use dev configuration for compatibility and security
-- **Testing**: Use load test configuration for performance validation
-
-## 📝 Adding Your Own Configurations
-
-### Creating Custom Compose Files
-
-```yaml
-# docker-compose.custom.yml
-services:
-  your-service:
-    image: your-image
-    networks:
-      - foodme_network
-    depends_on:
-      - foodme
-
-networks:
-  foodme_network:
-    external: true
-```
-
-### Using Custom Configurations
+## Running the tests in the container
 
 ```bash
-# Combine multiple configs
-docker compose -f docker-compose.yml -f docker-compose.custom.yml up -d
-
-# Add to package.json
-"docker:custom": "docker compose -f docker-compose.yml -f docker-compose.custom.yml up -d"
+cd angular-app && npm run test:ci     # Angular specs, headless Chrome
+node --test server/                    # server tests
 ```
 
-## 🆘 Support
+The Angular tests need Chrome, and the dev container image does not install it. If `ChromeHeadless` is missing, run the tests from your host, where Chrome is installed. See [Testing the front end](../../angular-app/TESTING.md).
 
-If you encounter issues with any configuration:
+## Load testing
 
-1. **Check logs**: Use the appropriate logging command for your config
-2. **Verify environment**: Ensure `.env` file is properly configured
-3. **Test connectivity**: Verify Docker daemon and network connectivity
-4. **Fallback**: Try the dev configuration if main config fails
+`npm run loadtest`, `loadtest:web` and `loadtest:headless` run Locust from a Python virtual environment at `.venv/` against `http://localhost:3000`, so start the app first (the simple Docker setup publishes port 3000). See [Load Testing](../LOAD_TESTING.md). The Docker-based load test setup is in `docker/archive/`.
 
-For more help, see:
-- [SETUP_GUIDE.md](./SETUP_GUIDE.md) - Complete setup instructions
-- [NEW_RELIC_INFRA_SETUP.md](../NEW_RELIC_INFRA_SETUP.md) - New Relic configuration
-- [DEPLOYMENT_GUIDE.md](../deployment/DEPLOYMENT_GUIDE.md) - Deployment workflows
+## Build problems after switching between container and host
+
+`node_modules` installed in the Linux container will not work on a Mac or Windows host (and the reverse): `ng build` fails with "You installed esbuild for another platform". Build where you installed, or run `npm run build:angular:docker` from your host terminal, which builds inside a `node:24` container.
+
+## See also
+
+- [Docker Comprehensive Guide](../troubleshooting/DOCKER_COMPREHENSIVE_GUIDE.md) for Docker troubleshooting
+- [Setup Guide](./SETUP_GUIDE.md) for the optional HTTPS development environment
+- [Environment Variables](./ENVIRONMENT_VARIABLES.md)

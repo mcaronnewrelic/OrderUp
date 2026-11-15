@@ -1,193 +1,60 @@
-# Secret Management Guide
+# Secret Management
 
-This guide covers the best practices for managing secrets (API keys, tokens, etc.) in the FoodMe application across different environments.
+How to handle API keys, license keys and database passwords in OrderUp, locally and in AWS.
 
-## Quick Start
+## What is secret
 
-1. **Setup your environment file:**
+| Value | Where it is used |
+|---|---|
+| `NEW_RELIC_LICENSE_KEY` | The APM agent, the browser agent and the infrastructure agent. |
+| `NEW_RELIC_API_KEY` (a User key, `NRAK-...`) | Deployment markers, source map upload, dashboard deep links, the setup workflow. |
+| `DB_PASSWORD` | The database, and the server connecting to it. |
+| AWS access keys | The GitHub deployment workflow. |
+
+Account IDs, entity GUIDs and the dashboard GUID are identifiers, not secrets. The full list of settings is in [Environment Variables](./ENVIRONMENT_VARIABLES.md).
+
+## Local development
+
+1. Create `.env` from the template and fill it in:
    ```bash
    npm run setup:env
-   # Edit .env with your actual values
    ```
+2. Keep it out of git. `.gitignore` already excludes `.env` and `.env.local`, and `.dockerignore` keeps them out of image builds.
+3. Restrict it to yourself: `chmod 600 .env`.
 
-2. **Run with secrets (recommended):**
-   ```bash
-   npm run docker:with-secrets
-   ```
+Docker passes `.env` to the containers when it **creates** them (`env_file`), so the values exist only in the container's environment at run time and never in an image layer. After you change `.env`, recreate the containers (`up -d --force-recreate`). For the full setup, see the [Docker Development Guide](../../DOCKER_DEVELOPMENT_GUIDE.md).
 
-## Methods for Adding Secrets to Docker
-
-### 1. 🔒 Runtime Secrets with .env File (RECOMMENDED)
-
-**Best for:** Development and production deployments
+Check that `.env` exists and has no placeholders:
 
 ```bash
-# Build the image
-docker build -t foodme:latest .
-
-# Run with .env file
-docker run -p 3000:3000 --env-file .env foodme:latest
-```
-
-**Pros:**
-- ✅ Secrets never embedded in image
-- ✅ Easy to manage and update
-- ✅ Works well with Docker Compose
-- ✅ Secure - secrets only in container environment at runtime
-
-**Cons:**
-- ❌ .env file must be present on host
-- ❌ Secrets visible in container environment (but not in image)
-
-### 2. 🐳 Docker Compose with .env
-
-**Best for:** Multi-service applications and development
-
-```bash
-# Using docker-compose
-docker-compose up --build
-
-# Or specific service
-docker-compose up --build foodme
-```
-
-**Pros:**
-- ✅ Easy service orchestration
-- ✅ Automatic .env file loading
-- ✅ Good for development environments
-- ✅ Secrets managed at runtime only
-
-### 3. 🔐 Docker Secrets (Production)
-
-**Best for:** Docker Swarm and production environments
-
-```bash
-# Create secrets
-echo "your_license_key" | docker secret create new_relic_license_key -
-echo "your_api_key" | docker secret create new_relic_api_key -
-
-# Deploy with secrets
-docker-compose up --build foodme-with-secrets
-```
-
-**Pros:**
-- ✅ Most secure method
-- ✅ Secrets encrypted at rest
-- ✅ Granular access control
-- ✅ Never visible in image or build history
-
-**Cons:**
-- ❌ Requires Docker Swarm
-- ❌ More complex setup
-
-### ❌ What We DON'T Recommend
-
-**Build-time Arguments (SECURITY RISK):**
-```bash
-# DON'T DO THIS - Insecure!
-docker build --build-arg NEW_RELIC_API_KEY="secret" .
-```
-
-**Why this is bad:**
-- ❌ Secrets visible in image history (`docker history`)
-- ❌ Secrets embedded in image layers
-- ❌ Can be extracted from built images
-- ❌ Violates security best practices
-
-## Environment Variables
-
-The application uses these environment variables:
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEW_RELIC_LICENSE_KEY` | ✅ | New Relic account license key |
-| `NEW_RELIC_API_KEY` | ✅ | New Relic API key for deployments |
-| `NEW_RELIC_APP_NAME` | ❌ | App name in New Relic (default: FoodMe-App) |
-| `NODE_ENV` | ❌ | Node environment (default: development) |
-
-## Security Best Practices
-
-### ✅ DO
-- Use `.env` files for local development
-- Use Docker secrets for production
-- Set proper file permissions on `.env` files (`chmod 600 .env`)
-- Use different secrets for different environments
-- Rotate secrets regularly
-- Use secret management services (AWS Secrets Manager, Azure Key Vault, etc.)
-
-### ❌ DON'T
-- Commit `.env` files to version control
-- Use build-time args for sensitive data in production
-- Store secrets in environment variables in production
-- Use the same secrets across environments
-- Log or print secret values
-
-## Validation
-
-Check if your environment is properly configured:
-
-```bash
-# Validate .env file exists
 npm run validate:env
-
-# Test the application with secrets
-npm run docker:with-secrets
+npm run security:validate     # scans Dockerfiles, scripts, compose files and source for committed secrets
 ```
+
+## In AWS
+
+- **GitHub Actions** keeps the secrets (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `DB_PASSWORD`, `NEW_RELIC_LICENSE_KEY`, `NEW_RELIC_API_KEY`) as repository or environment secrets. Identifiers are kept as variables. See the [Deployment Guide](../deployment/DEPLOYMENT_GUIDE.md#deploying-with-github-actions).
+- **On the instance**, `install-orderup.sh` writes the values into `/opt/orderup/backend/.env`. Code deployments preserve that file and only add the identifier values.
+- **The database password** is passed to `deploy-production.sh` as an argument, so it will appear in your shell history if you run the script by hand; the workflow reads it from the `DB_PASSWORD` secret instead.
+
+For anything beyond a demo, move the values into AWS Secrets Manager or Parameter Store and have the instance read them from there.
+
+## Do
+
+- Use a separate set of keys for each environment, and rotate them regularly.
+- Rotate a key at once if it appears anywhere it should not (a screenshot, a log, a chat).
+- Keep `.env.example` free of real values.
+
+## Don't
+
+- Commit `.env`, or paste keys into source files, Dockerfiles or compose files.
+- Pass secrets as build arguments (`ARG`, `--build-arg`): they stay in the image history.
+- Share `docker logs` output without checking it. Some tools print their configuration; the earlier stand-in infrastructure agent printed the license key.
 
 ## Troubleshooting
 
-### Common Issues
+- **A container does not see a new value:** it reads `.env` only at creation. `docker-compose ... up -d --force-recreate <service>`.
+- **"Not starting without license key":** `NEW_RELIC_LICENSE_KEY` is missing or empty in the container's environment.
+- **The database container exits:** `DB_PASSWORD` was not found. Check that `.env` is in the repository root and that you start through the npm scripts.
 
-1. **`.env file not found`**
-   ```bash
-   npm run setup:env
-   # Then edit .env with actual values
-   ```
-
-2. **Placeholder values in .env**
-   - Make sure to replace `your_newrelic_api_key_here` with actual values
-
-3. **Permission denied on scripts**
-   ```bash
-   chmod +x run-with-secrets.sh
-   chmod +x docker-build.sh
-   ```
-
-4. **Container fails to start**
-   ```bash
-   # Check logs
-   docker logs foodme-app
-   
-   # Verify environment variables
-   docker exec foodme-app env | grep NEW_RELIC
-   ```
-
-## Production Deployment
-
-For production deployments, consider:
-
-1. **Cloud-native secret management:**
-   - AWS: Secrets Manager, Parameter Store
-   - Azure: Key Vault
-   - GCP: Secret Manager
-   - Kubernetes: Secrets
-
-2. **Environment-specific configuration:**
-   ```bash
-   # Production
-   NODE_ENV=production docker-compose -f docker-compose.prod.yml up
-   
-   # Staging
-   NODE_ENV=staging docker-compose -f docker-compose.staging.yml up
-   ```
-
-3. **Secret rotation strategy:**
-   - Implement automated secret rotation
-   - Use versioned secrets
-   - Monitor secret usage and access
-
-## Additional Resources
-
-- [Docker Secrets Documentation](https://docs.docker.com/engine/swarm/secrets/)
-- [Docker Compose Environment Variables](https://docs.docker.com/compose/environment-variables/)
-- [New Relic Configuration](https://docs.newrelic.com/docs/apm/agents/nodejs-agent/installation-configuration/nodejs-agent-configuration/)
+See [Security](../SECURITY.md) for what the security review found, including keys stored in plaintext in the local `.env`.

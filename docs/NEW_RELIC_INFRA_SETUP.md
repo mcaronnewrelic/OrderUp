@@ -9,17 +9,17 @@ The EC2 deployment has been enhanced to include New Relic Infrastructure agent m
 - **Server Monitoring**: CPU, memory, disk, network metrics
 - **Process Monitoring**: Application processes and resource usage
 - **Custom Attributes**: Environment, application name, instance type, region
-- **Display Name**: `foodme-{hostname}` (e.g., `foodme-ip-10-0-1-102`), tagged with `environment`
+- **Display Name**: `orderup-{hostname}` (e.g., `orderup-ip-10-0-1-102`), tagged with `environment`
 
 ### 2. New Relic APM Integration
 - **Application Performance Monitoring**: Node.js application metrics
-- **App Name**: `FoodMe` (staging and production are told apart by the `environment` tag on the host)
+- **App Name**: `OrderUp` (staging and production are told apart by the `environment` tag on the host)
 - **Transaction Tracing**: Web transactions, database queries, external services
 - **Error Tracking**: Application errors and exceptions
 
 ### 3. Nginx Integration
 - **Web Server Metrics**: Request rates, response times, error rates
-- **Status Endpoint**: `http://127.0.0.1/nginx_status` for New Relic monitoring
+- **Status Endpoint**: `http://127.0.0.1:8080/nginx_status` for New Relic monitoring
 - **Custom Labels**: Environment and role tagging
 
 ## Configuration
@@ -33,7 +33,7 @@ Add these to your GitHub repository secrets:
 ### Environment Variables
 The following environment variables are automatically set for the Node.js application:
 - `NEW_RELIC_LICENSE_KEY`: Infrastructure monitoring license key
-- `NEW_RELIC_APP_NAME`: Application name for APM (FoodMe-{environment})
+- `NEW_RELIC_APP_NAME`: Application name for APM (`OrderUp`)
 - `NEW_RELIC_NO_CONFIG_FILE`: Uses environment variables instead of config file
 
 ## Monitoring Features
@@ -87,8 +87,8 @@ sudo journalctl -u newrelic-infra -f
 ### Verify in New Relic Dashboard
 1. Log into New Relic One
 2. Go to Infrastructure → Hosts
-3. Look for your server: `FoodMe-EC2-{environment}-{instance-id}`
-4. Check APM & Services for your application: `FoodMe-{environment}`
+3. Look for your server: `orderup-<hostname>` (filter by the `environment` attribute)
+4. Check APM & Services for your application: `OrderUp`
 
 ## Configuration Files
 
@@ -96,12 +96,11 @@ sudo journalctl -u newrelic-infra -f
 Location: `/etc/newrelic-infra.yml`
 ```yaml
 license_key: {YOUR_LICENSE_KEY}
-display_name: FoodMe-EC2-{environment}-{instance-id}
+display_name: orderup-<hostname>
 custom_attributes:
   environment: {environment}
-  application: foodme
-  instance_type: {instance_type}
-  region: {aws_region}
+  application: orderup
+  role: web-server
 ```
 
 ### Nginx Integration Config
@@ -110,14 +109,17 @@ Location: `/etc/newrelic-infra/integrations.d/nginx-config.yml`
 integrations:
   - name: nri-nginx
     env:
+      STATUS_URL: http://127.0.0.1:8080/nginx_status
       METRICS: true
-      STATUS_URL: http://127.0.0.1/nginx_status
-      STATUS_MODULE: discover
-      REMOTE_MONITORING: true
+      INVENTORY: true
     labels:
       environment: {environment}
-      role: webserver
+      role: web-server
+      service: nginx
+      application: orderup
 ```
+The complete file is written by `cloudformation/install-orderup.sh`; [newrelic-integrations/](../newrelic-integrations/README.md) holds a reference copy.
+
 
 ## Troubleshooting
 
@@ -128,13 +130,13 @@ integrations:
 4. Ensure network connectivity to New Relic endpoints
 
 ### APM Not Showing Data
-1. Check application logs: `sudo journalctl -u foodme -n 50`
-2. Verify environment variables are set in systemd service
+1. Check application logs: `sudo -u ec2-user pm2 logs orderup-backend --nostream --lines 50`
+2. Verify the environment variables in `/opt/orderup/backend/.env`
 3. Check New Relic agent initialization in application startup logs
 
 ### Nginx Integration Issues
-1. Verify nginx status endpoint: `curl http://127.0.0.1/nginx_status`
-2. Check nginx configuration: `/etc/nginx/conf.d/foodme.conf`
+1. Verify nginx status endpoint: `curl http://127.0.0.1:8080/nginx_status`
+2. Check nginx configuration: `/etc/nginx/conf.d/orderup.conf`
 3. Restart nginx: `sudo systemctl restart nginx`
 
 ## Cost Considerations
@@ -144,162 +146,35 @@ integrations:
 
 ## Security Notes
 - License key is passed securely through GitHub Secrets
-- Nginx status endpoint is only accessible from localhost (127.0.0.1)
+- The nginx status endpoint is only open to localhost and private address ranges
 - All monitoring traffic is encrypted in transit
 - No sensitive application data is transmitted to New Relic
 
-## Quick Setup
+## Running it locally (Docker)
 
-### 1. Configure Your License Key
+`npm run docker:dev:full` starts the official `newrelic/infrastructure` image (pinned to 2.0.1, the version the EC2 install script uses) next to the app, nginx and PostgreSQL.
 
-Edit your `.env` file and add your actual New Relic license key:
+1. Put your license key in `.env` as `NEW_RELIC_LICENSE_KEY`. The agent reads `NRIA_LICENSE_KEY` and falls back to that. If neither is set, or it is still the placeholder, the container exits with `invalid license`.
+2. Start it: `npm run docker:dev:full`.
+3. Check it: `docker logs orderup-infra` should show `connect got id`. In New Relic, look for the host named by `MONITORING_DISPLAY_NAME` (default `OrderUp-Infra-Docker-Local`) in `SystemSample` and `ContainerSample`.
 
-```bash
-NEW_RELIC_LICENSE_KEY=your_actual_license_key_here
-```
+What to expect:
 
-You can find your license key at: https://one.newrelic.com/launcher/api-keys-ui.api-keys-launcher
+- The agent runs with `privileged: true`, `pid: host` and `network_mode: host`, and mounts `/` and the Docker socket read-only. On Docker Desktop the "host" it reports is the Docker VM (hostname `docker-desktop`), not your computer.
+- It reports host metrics, processes and Docker containers. It does **not** run the nginx or PostgreSQL integrations; see [New Relic Integrations](./NEW_RELIC_INTEGRATIONS_SETUP.md).
+- Its log has harmless errors about DMI data (`product_uuid`, `sys_vendor`) and `DBus`, because a Docker VM has neither.
 
-### 2. Run the Setup Script
-
-```bash
-./setup-newrelic-infra.sh
-```
-
-This script will:
-- Validate your configuration
-- Start all services with New Relic monitoring enabled
-- Test the integrations
-- Show you the status of all monitoring components
-
-### 3. Verify Setup
-
-After setup, you should see these containers running:
-- `newrelic-infra` - Infrastructure monitoring
-- `newrelic-nginx` - Nginx monitoring
-- `newrelic-postgres` - Database monitoring
-
-## What Gets Monitored
-
-### Infrastructure Agent
-- Host system metrics (CPU, memory, disk, network)
-- Docker container metrics
-- Process monitoring
-- Custom attributes for filtering
-
-### Nginx Integration
-- HTTP request metrics
-- Response times
-- Connection statistics
-- Error rates
-- Upstream server health
-
-### PostgreSQL Integration
-- Database performance metrics
-- Connection pool statistics
-- Query performance
-- Table sizes and growth
-- Custom FoodMe business metrics
-
-## Manual Setup (Alternative)
-
-If you prefer to set up manually:
-
-### 1. Update docker-compose.yml
-
-The infrastructure monitoring is already configured in the main `docker-compose.yml` file with full capabilities enabled for non-devcontainer usage.
-
-### 2. Start Services
+Troubleshooting:
 
 ```bash
-# Stop existing services
-docker compose down
-
-# Start with New Relic monitoring
-docker compose up -d
+docker logs orderup-infra                     # license, connection, errors
+grep NEW_RELIC_LICENSE_KEY .env               # is it set, and not the placeholder?
+docker exec orderup-infra env | grep NRIA     # what the agent was given
 ```
 
-### 3. Test Setup
-
-```bash
-# Test New Relic integrations
-./test-newrelic-integrations.sh
-
-# Check container status
-docker compose ps
-
-# View logs
-docker compose logs newrelic-infra
-```
-
-## Viewing Your Data
-
-Once setup is complete, you can view your monitoring data in New Relic:
-
-1. **Infrastructure Overview**: https://one.newrelic.com/launcher/infrastructure-ui.infrastructure-launcher
-2. **Docker Monitoring**: Filter by `application:foodme` in the Infrastructure UI
-3. **Nginx Metrics**: Look for nginx integration data in Infrastructure > Integrations
-4. **PostgreSQL Metrics**: Look for postgres integration data in Infrastructure > Integrations
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. License Key Issues
-```bash
-# Check if license key is set
-grep NEW_RELIC_LICENSE_KEY .env
-
-# Verify it's not a placeholder
-grep -v "your_newrelic_license_key_here" .env
-```
-
-#### 2. Container Permission Issues
-If you see permission errors, ensure Docker has the required permissions:
-```bash
-# Check container logs
-docker compose logs newrelic-infra
-
-# Restart with proper permissions
-docker compose down
-docker compose up -d
-```
-
-#### 3. Network Connectivity
-Test if the containers can communicate:
-```bash
-# Test nginx status endpoint
-curl http://localhost/nginx_status
-
-# Test database connection
-docker compose exec db psql -U foodme_user -d foodme -c "SELECT 1;"
-```
-
-### Monitoring Commands
-
-```bash
-# View all New Relic container logs
-docker compose logs newrelic-infra newrelic-nginx newrelic-postgres
-
-# Check container resource usage
-docker stats
-
-# Test specific integration
-docker compose exec newrelic-infra cat /etc/newrelic-infra/integrations.d/nginx-config.yml
-```
-
-## Differences from DevContainer Setup
-
-The main differences when running outside a devcontainer:
-
-1. **Full Privileges**: Infrastructure agent runs with `privileged: true` and `pid: host`
-2. **Host Monitoring**: Full access to host system via `/:/host:ro` volume mount
-3. **Process Monitoring**: `NRIA_ENABLE_PROCESS_METRICS=true` enabled
-4. **Additional Integrations**: Nginx and PostgreSQL monitoring included
+Data from the browser can be blocked on your own machine by an ad blocker or DNS filter; see the [Docker Comprehensive Guide](./troubleshooting/DOCKER_COMPREHENSIVE_GUIDE.md#new-relic-in-the-containers).
 
 ## Environment Variables
-
-Key environment variables for New Relic monitoring:
 
 ```bash
 # Required

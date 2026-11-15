@@ -1,6 +1,6 @@
-# FoodMe Docker Development Guide
+# OrderUp Docker Development Guide
 
-The quick start for running FoodMe on your machine. For what each file in `docker/` does, see [docker/README.md](./docker/README.md). When something breaks, see the [Docker Comprehensive Guide](./docs/troubleshooting/DOCKER_COMPREHENSIVE_GUIDE.md).
+The quick start for running OrderUp on your machine. For what each file in `docker/` does, see [docker/README.md](./docker/README.md). When something breaks, see the [Docker Comprehensive Guide](./docs/troubleshooting/DOCKER_COMPREHENSIVE_GUIDE.md).
 
 ## Quick start
 
@@ -18,12 +18,12 @@ The quick start for running FoodMe on your machine. For what each file in `docke
    ```bash
    npm run docker:dev:simple
    ```
-5. **Open** http://localhost (through nginx) or http://localhost:3000 (the app directly).
+5. **Open** http://localhost (through nginx) or, with the simple setup, http://localhost:3000 (the app directly).
 
 | URL | What it is |
 |---|---|
 | http://localhost | The site, through nginx |
-| http://localhost:3000 | The Node app directly |
+| http://localhost:3000 | The Node app directly (simple setup only) |
 | http://localhost/health | Health check |
 | http://localhost/api/restaurant | The restaurant API |
 
@@ -32,10 +32,12 @@ The quick start for running FoodMe on your machine. For what each file in `docke
 | | Simple | Full |
 |---|---|---|
 | Command | `npm run docker:dev:simple` | `npm run docker:dev:full` |
-| Runs | App, PostgreSQL, nginx | The same, plus a New Relic infrastructure agent stand-in and database monitoring |
+| Runs | App, PostgreSQL, nginx | The same, plus the real New Relic infrastructure agent and PostgreSQL with the monitoring extensions |
 | Compose file | `docker/docker-compose.dev-simple.yml` | `docker/docker-compose.arm64.yml` |
-| Use it for | Feature work and debugging | Testing monitoring and production-like behavior |
+| Use it for | Feature work and debugging | Testing monitoring and production-like behavior. Only nginx is published, so use http://localhost (no port 3000). |
 | Startup | About 30 seconds | About 60 seconds |
+
+The npm scripts pass `--env-file .env` to Compose. That matters: Compose fills in values such as `${DB_PASSWORD}` from an `.env` next to the compose file (`docker/`), not the repository root, so running `docker-compose -f docker/...` by hand without `--env-file .env` starts PostgreSQL with an empty password. The commands below include the flag.
 
 ## Commands
 
@@ -56,9 +58,9 @@ What you changed decides what to run. The server code is copied into the image w
 
 | You changed | Run |
 |---|---|
-| Angular code (`angular-app/`) | `npm run build:angular`. No restart needed: `dist/` is mounted into the container. |
-| Server code (`server/`) | `docker-compose -f docker/docker-compose.dev-simple.yml up -d --build --force-recreate foodme` |
-| `.env` | `docker-compose -f docker/docker-compose.dev-simple.yml up -d --force-recreate foodme`. The file is read only when the container is created, so a plain restart does not pick up changes. |
+| Angular code (`angular-app/`) | Simple setup: `npm run build:angular`. No restart needed: `dist/` is mounted into the container. Full setup: the image builds Angular itself, so rebuild it with `docker-compose --env-file .env -f docker/docker-compose.arm64.yml up -d --build orderup`. |
+| Server code (`server/`) | `docker-compose --env-file .env -f docker/docker-compose.dev-simple.yml up -d --build --force-recreate orderup` |
+| `.env` | `docker-compose --env-file .env -f docker/docker-compose.dev-simple.yml up -d --force-recreate orderup`. The file is read only when the container is created, so a plain restart does not pick up changes. |
 | Database scripts in `db/init/` | `npm run docker:clean`, then start again. They only run when the database volume is first created. |
 
 From a Mac terminal, `npm run docker:dev:simple:build` covers all of the first three rows at once. It builds Angular in a `node:24` container, rebuilds the images and recreates the containers. The database volume is kept.
@@ -68,10 +70,10 @@ From a Mac terminal, `npm run docker:dev:simple:build` covers all of the first t
 The npm scripts are thin wrappers:
 
 ```bash
-docker-compose -f docker/docker-compose.dev-simple.yml up -d
-docker-compose -f docker/docker-compose.dev-simple.yml ps
-docker-compose -f docker/docker-compose.dev-simple.yml logs -f
-docker-compose -f docker/docker-compose.dev-simple.yml down
+docker-compose --env-file .env -f docker/docker-compose.dev-simple.yml up -d
+docker-compose --env-file .env -f docker/docker-compose.dev-simple.yml ps
+docker-compose --env-file .env -f docker/docker-compose.dev-simple.yml logs -f
+docker-compose --env-file .env -f docker/docker-compose.dev-simple.yml down
 ```
 
 Use `docker/docker-compose.arm64.yml` in place of the simple file for the full setup.

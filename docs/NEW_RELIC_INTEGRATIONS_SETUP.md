@@ -1,121 +1,43 @@
-# New Relic Infrastructure Integrations - Installation Guide
+# New Relic Integrations: nginx and PostgreSQL
 
-## Overview
-The `newrelic-infra.dockerfile` has been updated to include the `nri-nginx` and `nri-postgresql` New Relic integration packages for comprehensive monitoring of the FoodMe application stack.
+How the infrastructure agent monitors nginx and PostgreSQL. This applies to the **EC2 deployment**. The local Docker setups run the infrastructure agent, but no nginx or PostgreSQL integration (see below).
 
-## Installed Integrations
+## What is installed
 
-### 1. nri-nginx
-- **Purpose**: Monitors Nginx web server performance and health
-- **Metrics**: Request rates, response times, connection counts, error rates
-- **Configuration**: `newrelic-integrations/nginx-config.yml`
+`cloudformation/install-orderup.sh` installs both packages from New Relic's repository with `dnf`, writes their configuration, and restarts the agent:
 
-### 2. nri-postgresql  
-- **Purpose**: Monitors PostgreSQL database performance and health
-- **Metrics**: Query performance, connection counts, database size, lock metrics
-- **Configuration**: `newrelic-integrations/postgres-config.yml`
+| Integration | Package | Configuration written to | What it reads |
+|---|---|---|---|
+| nginx | `nri-nginx` | `/etc/newrelic-infra/integrations.d/nginx-config.yml` | nginx's status page, `http://127.0.0.1:8080/nginx_status` |
+| PostgreSQL | `nri-postgresql` | `/etc/newrelic-infra/integrations.d/postgresql-config.yml` | The `orderup` database, as a read-only `newrelic` user created at install time with a generated password |
 
-## Dockerfile Changes Made
+Logs are forwarded from `/etc/newrelic-infra/logging.d/logging.yml`. The files in [newrelic-integrations/](../newrelic-integrations/README.md) are reference copies of this configuration.
 
-```dockerfile
-# Install New Relic integrations packages
-USER root
-RUN microdnf update -y && \
-    microdnf install -y \
-        nri-nginx \
-        nri-postgresql && \
-    microdnf clean all
-USER newrelic
-```
+## What you get in New Relic
 
-## Configuration Files
+- **nginx:** request rate, connections (active, waiting), status-page counters.
+- **PostgreSQL:** connections and transactions, query statistics from `pg_stat_statements`, table and index statistics, lock information.
+- Everything carries the `environment` and `application: orderup` attributes the agent adds.
 
-### Nginx Integration (`nginx-config.yml`)
-- Monitors Nginx status endpoint at `http://nginx:80/nginx_status`
-- Collects metrics and inventory data
-- Configured for Docker Compose networking
+## Verify
 
-### PostgreSQL Integration (`postgres-config.yml`)
-- Connects to database container `db` on port 5432
-- Uses credentials from environment variables
-- Collects extended metrics including lock information
-- SSL disabled for internal Docker networking
-
-## How to Rebuild and Deploy
-
-### 1. Rebuild the New Relic Infrastructure Container
 ```bash
-# From the docker directory
-docker-compose build newrelic-infra
+# On the instance
+sudo systemctl status newrelic-infra
+curl -s http://127.0.0.1:8080/nginx_status
+/var/db/newrelic-infra/newrelic-integrations/bin/nri-nginx -pretty
+/var/db/newrelic-infra/newrelic-integrations/bin/nri-postgresql -pretty
 ```
 
-### 2. Restart Services with New Integration
-```bash
-# Stop current services
-docker-compose down
-
-# Start with rebuilt infrastructure monitoring
-docker-compose up -d
-```
-
-### 3. Verify Integration Installation
-```bash
-# Check that integrations are installed in the container
-docker exec foodme-infra ls -la /var/db/newrelic-infra/newrelic-integrations/bin/
-
-# Check integration logs
-docker logs foodme-infra
-```
-
-## Expected New Relic Data
-
-After deployment, you should see in New Relic:
-
-### Nginx Metrics
-- Request throughput and response times
-- HTTP status code distributions  
-- Active connections and waiting requests
-- Upstream server health
-
-### PostgreSQL Metrics
-- Database connections and transactions
-- Query performance and slow queries
-- Table and index statistics
-- Lock contention and deadlocks
+Or from your machine: `cloudformation/validate-monitoring.sh -e staging`.
 
 ## Troubleshooting
 
-### Common Issues
-1. **Integration not appearing in New Relic**: 
-   - Check container logs: `docker logs foodme-infra`
-   - Verify configuration files are properly mounted
-   - Ensure New Relic license key is set
+- **Nothing appears for an integration:** check `sudo journalctl -u newrelic-infra -n 100`, then run the integration binary by hand as above to see its error.
+- **nginx connection refused:** the status page is open only to localhost and private address ranges; check `curl http://127.0.0.1:8080/nginx_status` and the nginx config in `/etc/nginx/conf.d/orderup.conf`.
+- **PostgreSQL authentication errors:** the `newrelic` user's password is generated at install time and written into the integration file. Do not edit the user without updating the file.
+- `cloudformation/diagnose-nginx-monitoring.sh` and `diagnose-postgresql-monitoring.sh` check each step of the above.
 
-2. **Connection errors to services**:
-   - Verify Docker networking between containers
-   - Check service endpoints are accessible from infra container
-   - Validate credentials and connection parameters
+## Locally
 
-3. **Missing metrics**:
-   - Ensure target services (nginx, postgresql) are running
-   - Check that status endpoints are enabled
-   - Verify integration configuration syntax
-
-### Debug Commands
-```bash
-# Test connectivity to services from infra container
-docker exec foodme-infra wget -qO- http://nginx:80/nginx_status
-docker exec foodme-infra nc -zv db 5432
-
-# Check integration configuration
-docker exec foodme-infra cat /etc/newrelic-infra/integrations.d/nginx-config.yml
-docker exec foodme-infra cat /etc/newrelic-infra/integrations.d/postgres-config.yml
-```
-
-## Security Notes
-- PostgreSQL integration uses environment variables for credentials
-- SSL is disabled for internal Docker networking (recommended for containers)
-- Integration runs as `newrelic` user for security
-- Configuration files have appropriate read-only permissions
-
-The integrations are now ready to provide comprehensive monitoring of your FoodMe application infrastructure!
+`npm run docker:dev:full` starts the official `newrelic/infrastructure` image, which reports the Docker host and the containers. It does not run the nginx or PostgreSQL integrations: the configs in `newrelic-integrations/` point at `localhost` and the EC2 database user, and they are not mounted. To get nginx and PostgreSQL data from the local containers, mount configs that point at `http://nginx/nginx_status` and the `db` service, and give the agent a database user to log in with. See [docker/README.md](../docker/README.md).

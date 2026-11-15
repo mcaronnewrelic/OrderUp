@@ -1,4 +1,4 @@
-# FoodMe Documentation
+# OrderUp Documentation
 
 Start with the [main README](../README.md), then use this page to find the one document you need.
 
@@ -19,6 +19,7 @@ Start with the [main README](../README.md), then use this page to find the one d
 | Deploy to AWS | [Deployment Guide](deployment/DEPLOYMENT_GUIDE.md), then see "Deployment" below |
 | Fix a deployment that failed | See "Troubleshooting" below |
 | Run a load test | [Load Testing](LOAD_TESTING.md) |
+| Write or run the front-end unit tests | [Testing the front end](../angular-app/TESTING.md) |
 | Understand the security posture and open findings | [Security](SECURITY.md) |
 
 ## Local development
@@ -28,8 +29,8 @@ Start with the [main README](../README.md), then use this page to find the one d
 | [Docker Development Guide](../DOCKER_DEVELOPMENT_GUIDE.md) | You want the app running. The quick start. |
 | [docker/README.md](../docker/README.md) | You need to know which compose file and Dockerfile does what. |
 | [DevContainer Setup](setup/DEVCONTAINER_SETUP.md) | You work in VS Code's dev container, or in an environment with restricted Docker access. |
-| [Setup Guide](setup/SETUP_GUIDE.md) | You want to set up the HTTPS development environment with the setup script. |
-| [Environment Variables](setup/ENVIRONMENT_VARIABLES.md) | You deploy with CloudFormation and need to know which variables it reads. |
+| [Setup Guide](setup/SETUP_GUIDE.md) | You want the optional HTTPS development environment (it uses an archived script). |
+| [Environment Variables](setup/ENVIRONMENT_VARIABLES.md) | You need to know what each setting in `.env` does, and where it is read. |
 | [Secret Management](setup/SECRET_MANAGEMENT.md) | You handle API keys, license keys or database passwords. |
 | [Database Guide](setup/DATABASE_GUIDE.md) | You work with PostgreSQL, its initialization scripts or its data. |
 

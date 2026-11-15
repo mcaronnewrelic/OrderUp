@@ -5,14 +5,14 @@ This directory conta## Sample Output
 ```bash
 🚀 Creating New Relic deployment marker with entity search...
 📋 Loading environment variables from .env file...
-🔍 Searching for entity: FoodMe
+🔍 Searching for entity: OrderUp
 📊 Deployment Details:
    User: Michael Caron
    Commit: 8241e893afea21bdd06af53bce5466de779790d6
    Changelog: 8241e89 cloud formation template and orders inserted into db
    Timestamp: 2025-10-03T01:07:02Z
-🔍 Searching for FoodMe APM entity...
-✅ Found entity: "FoodMe"
+🔍 Searching for OrderUp APM entity...
+✅ Found entity: "OrderUp"
 📋 Entity GUID: MTM1MjgxMXxBUE18QVBQTElDQVRJT044MTAwMjU4MDIxNg
 🌐 Creating deployment marker in New Relic...
 ✅ Deployment marker created successfully!
@@ -29,7 +29,7 @@ npm run newrelic:deployment
 ```
 - **File**: `scripts/newrelic-deployment-entity.sh`
 - **Features**: 
-  - Automatically searches for "FoodMe" APM entity
+  - Automatically searches for "OrderUp" APM entity
   - Uses entity GUID for proper change tracking
   - Creates official New Relic deployment markers
   - Fallback search for any APPLICATION entities
@@ -54,8 +54,8 @@ npm run newrelic:deployment:simple    # Simple Node.js version
 
 ## How Entity Discovery Works
 
-1. **Primary Search**: Searches for entities with name LIKE 'FoodMe' AND type = 'APPLICATION'
-2. **Fallback Search**: If no FoodMe entity found, searches for all APPLICATION entities
+1. **Primary Search**: Searches for entities with name LIKE 'OrderUp' AND type = 'APPLICATION'
+2. **Fallback Search**: If no OrderUp entity found, searches for all APPLICATION entities
 3. **Entity Selection**: Uses the first matching entity or shows available options
 4. **Deployment Creation**: Creates a change tracking deployment marker using the entity GUID
 
@@ -67,7 +67,7 @@ npm run newrelic:deployment:simple    # Simple Node.js version
 - **Version**: Generated as `v1.0.0-{short-commit}`
 - **Changelog**: Latest commit message
 - **Timestamp**: Deployment time (epoch milliseconds)
-- **Description**: "FoodMe Node.js Server Deployment"
+- **Description**: "OrderUp Node.js Server Deployment"
 
 ## Sample Output
 
@@ -79,8 +79,8 @@ npm run newrelic:deployment:simple    # Simple Node.js version
    Commit: 8241e893afea21bdd06af53bce5466de779790d6
    Changelog: 8241e89 cloud formation template and orders inserted into db
    Timestamp: 2025-10-03T00:57:06Z
-🔍 Searching for FoodMe APM entity...
-✅ Found entity: "FoodMe"
+🔍 Searching for OrderUp APM entity...
+✅ Found entity: "OrderUp"
 📋 Entity GUID: MTM1MjgxMXxBUE18QVBQTElDQVRJT058MTAwMjU4MDIxNg
 🌐 Creating deployment marker in New Relic...
 ✅ Deployment marker created successfully!
@@ -98,7 +98,7 @@ Add these to your `.env` file:
 NEW_RELIC_API_KEY="NRAK-your-api-key-here"
 
 # Required: Application Name (used for entity search)
-NEW_RELIC_APP_NAME="FoodMe"
+NEW_RELIC_APP_NAME="OrderUp"
 
 # Optional: License Key (for Insights API)
 NEW_RELIC_LICENSE_KEY="your-license-key-here"
@@ -106,7 +106,7 @@ NEW_RELIC_LICENSE_KEY="your-license-key-here"
 
 ## How Entity Discovery Works
 
-1. **App Name**: Uses `NEW_RELIC_APP_NAME` from .env (defaults to "FoodMe")
+1. **App Name**: Uses `NEW_RELIC_APP_NAME` from .env (defaults to "OrderUp")
 2. **Primary Search**: Searches for entities with `name LIKE '{APP_NAME}' AND type = 'APPLICATION'`
 3. **Fallback Search**: If no entity found, searches for all APPLICATION entities
 4. **Entity Selection**: Uses the first matching entity or shows available options
@@ -145,7 +145,7 @@ You can override the app name in several ways:
 - **Version**: Generated from commit (e.g., `v1.0.0-8241e893`)
 - **Changelog**: Latest commit message
 - **Timestamp**: Deployment time
-- **Description**: "FoodMe Node.js Server Deployment"
+- **Description**: "OrderUp Node.js Server Deployment"
 
 ## Troubleshooting
 
@@ -159,7 +159,7 @@ You can override the app name in several ways:
 
 ```bash
 # Using New Relic CLI (if installed)
-newrelic entity search --name FoodMe
+newrelic entity search --name OrderUp
 
 # Or check your New Relic dashboard under "Entities"
 ```

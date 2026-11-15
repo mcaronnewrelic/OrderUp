@@ -19,11 +19,11 @@ Checked on a running staging instance on 2026-10-31.
 
 - **Traffic:** an Application Load Balancer listens on port 80. Requests to `/api/*` go to the backend target group (port 3000, health check `/health`). Everything else goes to nginx on port 8080 (health check `/`).
 - **nginx** listens on ports 80 and 8080 and proxies everything (pages, static files, `/api/` and `/health`) to the Node app on port 3000. Only `/nginx-health` and `/nginx_status` are answered by nginx itself.
-- **The Node app** serves the Angular build from `/opt/foodme/dist/browser`, and answers unknown paths with `index.html` so Angular routes work.
-- **The backend** runs under **PM2** as `ec2-user`, as the process `foodme-backend`. There is no systemd unit for it. Its code is in `/opt/foodme/backend`, with the settings in `.env` and `ecosystem.config.js`, and its logs are in `/opt/foodme/logs`.
+- **The Node app** serves the Angular build from `/opt/orderup/dist/browser`, and answers unknown paths with `index.html` so Angular routes work.
+- **The backend** runs under **PM2** as `ec2-user`, as the process `orderup-backend`. There is no systemd unit for it. Its code is in `/opt/orderup/backend`, with the settings in `.env` and `ecosystem.config.js`, and its logs are in `/opt/orderup/logs`.
 - **PostgreSQL 16** runs as the systemd service **`postgresql`** (not `postgresql-16`).
-- **The Angular source** is in `/opt/foodme/angular-app` and is built on the instance.
-- **Installation** runs once, when the instance first boots, from `install-foodme.sh` in the deployment S3 bucket. Its output is in `/var/log/cloud-init-output.log`.
+- **The Angular source** is in `/opt/orderup/angular-app` and is built on the instance.
+- **Installation** runs once, when the instance first boots, from `install-orderup.sh` in the deployment S3 bucket. Its output is in `/var/log/cloud-init-output.log`.
 
 ## Getting onto the instance
 
@@ -34,7 +34,7 @@ The instance ID is the `EC2InstanceId` output of the stack.
 aws ssm start-session --target <instance-id>
 
 # Or with the key pair
-ssh -i foodme-keypair.pem ec2-user@<public-ip>
+ssh -i orderup-keypair.pem ec2-user@<public-ip>
 ```
 
 You can also run a command without logging in: `aws ssm send-command --instance-ids <id> --document-name AWS-RunShellScript --parameters '{"commands":["pm2 list"]}'`.
@@ -43,7 +43,7 @@ You can also run a command without logging in: `aws ssm send-command --instance-
 
 ```bash
 # What failed, and why
-aws cloudformation describe-stack-events --stack-name foodme-staging \
+aws cloudformation describe-stack-events --stack-name orderup-staging \
   --query 'StackEvents[?contains(ResourceStatus, `FAILED`)].[LogicalResourceId,ResourceStatusReason]' --output table
 ```
 
@@ -57,8 +57,8 @@ aws cloudformation describe-stack-events --stack-name foodme-staging \
 
 ```bash
 sudo systemctl status nginx postgresql        # both should be active
-sudo -u ec2-user pm2 list                      # foodme-backend should be "online"
-sudo -u ec2-user pm2 logs foodme-backend --lines 50 --nostream
+sudo -u ec2-user pm2 list                      # orderup-backend should be "online"
+sudo -u ec2-user pm2 logs orderup-backend --lines 50 --nostream
 
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/health   # the app
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/health   # through nginx
@@ -72,9 +72,9 @@ sudo tail -100 /var/log/cloud-init-output.log   # the installation
 If `pm2 list` shows `errored` or `stopped`, or `/health` fails:
 
 ```bash
-cd /opt/foodme/backend
+cd /opt/orderup/backend
 sudo -u ec2-user node start.js        # run it by hand and read the error (stop it with Ctrl-C)
-sudo -u ec2-user pm2 restart foodme-backend --update-env
+sudo -u ec2-user pm2 restart orderup-backend --update-env
 ```
 
 Common causes: a missing or wrong value in `.env` (the database password, the New Relic key), the database not running, or dependencies not installed after a code change (`sudo -u ec2-user npm install --omit=dev`).
@@ -84,18 +84,18 @@ Common causes: a missing or wrong value in `.env` (the database password, the Ne
 The targets are unhealthy. Check them, then fix whichever of nginx (8080) or the backend (3000) is down:
 
 ```bash
-aws elbv2 describe-target-groups --query 'TargetGroups[?contains(TargetGroupName, `foodme`)].[TargetGroupName,TargetGroupArn]' --output text
+aws elbv2 describe-target-groups --query 'TargetGroups[?contains(TargetGroupName, `orderup`)].[TargetGroupName,TargetGroupArn]' --output text
 aws elbv2 describe-target-health --target-group-arn <arn>
 ```
 
 ### A blank page, "Error loading application", or Angular routes returning 404
 
-The Node app cannot find the Angular build, which it serves itself. Check `ls /opt/foodme/dist/browser/index.html`. To rebuild it on the instance:
+The Node app cannot find the Angular build, which it serves itself. Check `ls /opt/orderup/dist/browser/index.html`. To rebuild it on the instance:
 
 ```bash
-cd /opt/foodme/angular-app
+cd /opt/orderup/angular-app
 sudo -u ec2-user npm install
-sudo -u ec2-user npm run build        # writes to /opt/foodme/dist
+sudo -u ec2-user npm run build        # writes to /opt/orderup/dist
 ```
 
 Angular 22 needs Node 22.22.3 or later, or 24.15 or later.
@@ -104,7 +104,7 @@ Angular 22 needs Node 22.22.3 or later, or 24.15 or later.
 
 ```bash
 sudo systemctl status postgresql
-sudo -u postgres psql -d foodme -c '\dt'
+sudo -u postgres psql -d orderup -c '\dt'
 pg_isready
 ```
 
@@ -120,7 +120,7 @@ Read `/var/log/cloud-init-output.log` to find the step that failed. Because inst
 
 The workflow and `cloudformation/deploy-code.sh` send commands to the instance through AWS Systems Manager.
 
-- **"Could not find EC2 instance":** the stack `foodme-<environment>` does not exist in that region.
+- **"Could not find EC2 instance":** the stack `orderup-<environment>` does not exist in that region.
 - **The command never starts:** the instance must show as Online in Systems Manager. Its role needs `AmazonSSMManagedInstanceCore`, which the template adds.
 - **A command fails:** the script prints the error output. For the full record, run `aws ssm list-command-invocations --instance-id <id> --details --max-items 1`.
 - **The health check at the end fails:** the backend did not come up after the restart. Run the first checks above.

@@ -1,6 +1,6 @@
 # Security
 
-What FoodMe does to protect secrets and customers, which checks exist, and what the source review of 2026-06-02 found. This page replaces three earlier documents (the security guide, the compliance report and the source review), which were merged here.
+What OrderUp does to protect secrets and customers, which checks exist, and what the source review of 2026-06-02 found. This page replaces three earlier documents (the security guide, the compliance report and the source review), which were merged here.
 
 Status of every finding was checked against the code on 2026-10-31. Line numbers in the findings are from the review date and have moved.
 
@@ -23,7 +23,7 @@ The serious problems are about who can call the API and what it leaves running. 
 | 9 | Medium | Mass assignment from `req.body` onto records | Open |
 | 10 | Low | New Relic keys stored in plaintext in the local `.env` | Open |
 | 11 | Low | Customer PII persisted in `localStorage` | Open |
-| 12 | Medium | SSH (port 22) is open to the whole internet on the CloudFormation EC2 security group | Open (added 2026-10-31) |
+| 12 | Medium | SSH (port 22) is open to the whole internet on the CloudFormation EC2 security group | Fixed (see the finding) |
 
 The local `.env` is gitignored and not tracked, so its keys are not in the repository. Finding 10 is about the keys being live and on disk in cleartext.
 
@@ -71,6 +71,8 @@ The validation script looks for `ARG` and `ENV` instructions with secrets in `do
 **Method:** manual source review focused on the OWASP Top 10: access control, injection, secrets, data exposure, security misconfiguration and DoS.
 
 ## Findings
+
+> The file names and line numbers below are from the 2026-06-02 review. Since then `server/index.js` has been split: the routes now live in `server/routes/` and the error handler in `server/middleware/`. Each finding still applies; search for the endpoint or function named.
 
 ### 1. No authentication or authorization (Critical)
 
@@ -152,15 +154,15 @@ If they must exist for load-testing, also cap the inputs (`Math.min(parseInt(req
 
 ### 3. Hardcoded database password in source (High)
 
-`server/database.js:49` falls back to a literal password:
+`server/database.js:50` falls back to a literal password:
 
 ```js
 if (!dbPassword) {
-  dbPassword = 'foodme_secure_password_2025!';
+  dbPassword = "orderup_secure_password_2025!";
 }
 ```
 
-The same literal appears in `db/scripts/test-database.js:16`. These are committed to the repository. Anyone with repo access (or anyone who finds the repo) learns a credential that is likely reused across environments.
+The same literal appears in `server/demo-investigations.js:84` and `db/scripts/test-database.js:16`. These are committed to the repository. Anyone with repo access (or anyone who finds the repo) learns a credential that is likely reused across environments.
 
 **Suggested fix:** Remove the fallback and fail closed:
 
@@ -170,7 +172,7 @@ if (!dbPassword) {
 }
 ```
 
-Rotate the password if `foodme_secure_password_2025!` was ever used in a real environment, and remove the literal from `test-database.js`.
+Rotate the password if `orderup_secure_password_2025!` was ever used in a real environment, and remove the literal from `demo-investigations.js` and `test-database.js` too. (The literal used to read `foodme_secure_password_2025!`; the application was renamed since this review.)
 
 ### 4. Order totals trust client-supplied prices (High)
 
@@ -265,7 +267,7 @@ The on-disk `.env` contains a real-looking `NEW_RELIC_LICENSE_KEY`, `NRIA_LICENS
 
 ### 11. Customer PII in localStorage (Low)
 
-`customer.service.ts` persists the full customer object (name, email, phone, address) to `localStorage` under `foodme-customer`. `localStorage` is readable by any JavaScript on the origin, so any future XSS or malicious third-party script would exfiltrate it. Given Angular's escaping the XSS risk is currently low, hence Low severity.
+`customer.service.ts` persists the full customer object (name, email, phone, address) to `localStorage` under `orderup-customer`. `localStorage` is readable by any JavaScript on the origin, so any future XSS or malicious third-party script would exfiltrate it. Given Angular's escaping the XSS risk is currently low, hence Low severity.
 
 **Suggested fix:** Store only what is needed, prefer in-memory state for sensitive fields, and consider clearing on logout/session end (the service already exposes `clearCustomer`).
 
@@ -283,7 +285,7 @@ Added 2026-10-31. `EC2SecurityGroup` in `cloudformation/orderup-production-stack
 
 - All database access uses parameterized queries; no string-concatenated SQL.
 - No dangerous client-side sinks (`innerHTML`, `bypassSecurityTrust*`, `eval`); Angular auto-escaping is intact.
-- Docker images run as a non-root `USER` (`node`/`nextjs`) and docker-compose reads `POSTGRES_PASSWORD` from an env variable rather than hardcoding it.
+- Docker images run as a non-root `USER` (`node`/`nextjs`) and the compose files read `POSTGRES_PASSWORD` from an env variable rather than hardcoding it.
 - nginx restricts `/nginx_status` with `allow`/`deny` and sets several response security headers; TLS config uses TLS 1.2/1.3 with `HIGH:!aNULL:!MD5`.
 - `.env` and `db/password.txt` are correctly gitignored.
 
