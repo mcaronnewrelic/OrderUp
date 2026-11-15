@@ -264,7 +264,8 @@ Resources:
           yum update -y
           
           # Install AWS CLI v2 and dependencies
-          dnf install -y wget curl unzip git
+          # curl is already present as curl-minimal; asking for "curl" conflicts with it after the update above
+          dnf install -y wget unzip git
           
           # Install AWS CLI v2 if not present
           if ! command -v aws &> /dev/null; then
