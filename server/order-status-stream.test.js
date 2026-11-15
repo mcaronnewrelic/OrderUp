@@ -68,21 +68,21 @@ test("subscribe answers with a snapshot, publish pushes advances to subscribers 
 /** A stand-in for the New Relic agent that records what the stream reports. */
 function createFakeNewrelic() {
   const calls = { transactions: [], events: [], metrics: [] };
+  let current = null;
   const fakeNewrelic = {
-    startBackgroundTransaction(name, callback) {
-      const record = { name, ended: false, attributes: null };
+    // Like the real agent, a background transaction ends when its callback settles.
+    async startBackgroundTransaction(name, callback) {
+      const record = { name, ended: false, attributes: {} };
       calls.transactions.push(record);
-      void (async () => {
-        await callback();
-      })();
-      return undefined;
-    },
-    getTransaction() {
-      const record = calls.transactions[calls.transactions.length - 1];
-      return { end() { record.ended = true; } };
+      current = record;
+      try {
+        return await callback();
+      } finally {
+        record.ended = true;
+      }
     },
     addCustomAttributes(attributes) {
-      calls.transactions[calls.transactions.length - 1].attributes = attributes;
+      Object.assign(current.attributes, attributes);
     },
     recordCustomEvent(type, attributes) {
       calls.events.push({ type, attributes });
@@ -100,10 +100,8 @@ async function settle() {
   await new Promise((resolve) => setImmediate(resolve));
 }
 
-test("a connection is one background transaction plus one OrderStreamSample at close", async (t) => {
+test("a subscribe is a short background transaction; the connection is one OrderStreamSample at close", async (t) => {
   const { calls, fakeNewrelic } = createFakeNewrelic();
-  // The fake's transaction callback completes only when the stream
-  // releases it at close; capture completion via the record itself.
   const stream = new OrderStatusStream(null, async () => "preparing", fakeNewrelic);
   const server = http.createServer();
   stream.attach(server);
@@ -121,6 +119,18 @@ test("a connection is one background transaction plus one OrderStreamSample at c
   });
   socket.send(JSON.stringify({ type: "subscribe", orderId: "42", demoCode: "OU-TEST" }));
   await nextMessage(socket); // snapshot
+  await settle();
+
+  // The transaction covers the subscribe, not the connection: it is
+  // already finished while the socket is still open.
+  assert.equal(calls.transactions.length, 1);
+  assert.equal(calls.transactions[0].name, "OrderStatusStream/subscribe");
+  assert.equal(calls.transactions[0].ended, true);
+  assert.equal(calls.transactions[0].attributes.orderId, "42");
+  assert.equal(calls.transactions[0].attributes.demoCode, "OU-TEST");
+  assert.equal(calls.transactions[0].attributes.snapshotFailed, false);
+  assert.equal(typeof calls.transactions[0].attributes.snapshotLookupMs, "number");
+
   const advanced = nextMessage(socket);
   stream.publish("42", "delivered");
   await advanced;
@@ -129,16 +139,12 @@ test("a connection is one background transaction plus one OrderStreamSample at c
   await new Promise((resolve) => socket.once("close", resolve));
   await settle();
 
+  // Pushes and the close add no transactions.
   assert.equal(calls.transactions.length, 1);
-  assert.equal(calls.transactions[0].name, "OrderStatusStream/connection");
-  assert.equal(calls.transactions[0].ended, true);
 
   const samples = calls.events.filter((event) => event.type === "OrderStreamSample");
   assert.equal(samples.length, 1);
   const sample = samples[0].attributes;
-  // The transaction and the custom event tell the same story.
-  assert.deepEqual(calls.transactions[0].attributes, sample);
-
   // Counts
   assert.equal(sample.messagesReceived, 1);
   assert.equal(sample.messagesSent, 2);
@@ -237,6 +243,10 @@ test("a connection that leaves early or never subscribes is labelled as such", a
   assert.equal(left.reachedTerminal, false);
   assert.equal("demoCode" in left, false);
   assert.equal("msToFirstPush" in left, false);
+
+  // Only the subscribing connection ran a transaction, and it saw the failed lookup.
+  assert.equal(calls.transactions.length, 1);
+  assert.equal(calls.transactions[0].attributes.snapshotFailed, true);
 
   assert.equal(never.outcome, "never_subscribed");
   assert.equal(never.subscribed, false);

@@ -20,17 +20,19 @@
  * ping keeps connections ahead of the ALB's idle timeout.
  *
  * APM visibility is manual, on purpose: the upgrade bypasses Express,
- * so the agent never sees this endpoint as a web transaction. Each
- * connection is therefore wrapped in a background transaction
- * (OrderStatusStream/connection, open for the connection's lifetime)
- * and summarised at close by an OrderStreamSample custom event - the
- * server-side mirror of the browser agent's WebSocket event, which is
- * likewise emitted once per connection, at close. Telemetry is
- * best-effort throughout: it must never break the stream.
+ * so the agent never sees this endpoint as a web transaction. The work
+ * the server does for a visitor - accepting a subscribe and looking up
+ * the snapshot - is wrapped in a short background transaction
+ * (OrderStatusStream/subscribe). It is deliberately NOT held open for
+ * the connection: a transaction lasting as long as the visitor watches
+ * (minutes) would drown the real response times in APM averages. The
+ * connection's lifetime is reported instead by an OrderStreamSample
+ * custom event at close - the server-side mirror of the browser agent's
+ * WebSocket event, likewise emitted once per connection, at close.
+ * Telemetry is best-effort throughout: it must never break the stream.
  *
  * What the telemetry is for (diagnosis, not just counting):
- *  - OrderStreamSample / the transaction's attributes answer "what
- *    happened on this connection": who (demoCode), which order, what
+ *  - OrderStreamSample answers "what happened on this connection": who (demoCode), which order, what
  *    the client saw (firstStatus -> lastStatus), whether it saw the
  *    order through (outcome), how it ended (closeCode + closeCategory),
  *    and where time went (subscribeDelayMs, snapshotLookupMs,
@@ -95,14 +97,9 @@ class OrderStatusStream {
     });
   }
 
-  /**
-   * Open the connection's APM background transaction. It stays open
-   * until endTelemetry releases it, so its duration is the
-   * connection's lifetime; the counts land as transaction attributes
-   * at the end, when they are final.
-   */
+  /** The per-connection counters that endTelemetry turns into an OrderStreamSample. */
   beginTelemetry(socket) {
-    const telemetry = {
+    return {
       orderId: null,
       demoCode: null,
       messagesReceived: 0,
@@ -119,28 +116,10 @@ class OrderStatusStream {
       lastSentAt: null,
       heartbeatTimeout: false,
       openConnectionsAtStart: this.wss.clients.size,
-      summary: null,
-      release: null,
     };
-    const released = new Promise((resolve) => { telemetry.release = resolve; });
-    try {
-      this.newrelic.startBackgroundTransaction('OrderStatusStream/connection', async () => {
-        const txn = this.newrelic.getTransaction();
-        await released;
-        try {
-          // Final by now: endTelemetry builds the summary before releasing.
-          this.newrelic.addCustomAttributes(telemetry.summary ?? this.summarise(telemetry, 0));
-        } catch { /* attributes are best-effort */ }
-        txn?.end();
-      });
-    } catch { /* telemetry must never break the stream */ }
-    return telemetry;
   }
 
-  /**
-   * One connection's story as flat attributes - shared by the
-   * transaction and the OrderStreamSample so the two records agree.
-   */
+  /** One connection's story as flat attributes, for the OrderStreamSample. */
   summarise(telemetry, closeCode) {
     const now = Date.now();
     const subscribed = telemetry.subscribedAt != null;
@@ -177,18 +156,33 @@ class OrderStatusStream {
     return attributes;
   }
 
-  /** Close the background transaction and emit the OrderStreamSample. */
+  /** Emit the connection's OrderStreamSample. */
   endTelemetry(socket, closeCode) {
     const telemetry = socket.telemetry;
     if (!telemetry) return;
     socket.telemetry = null;
     try {
-      telemetry.summary = this.summarise(telemetry, closeCode);
+      this.newrelic.recordCustomEvent('OrderStreamSample', this.summarise(telemetry, closeCode));
     } catch { /* telemetry must never break the stream */ }
-    telemetry.release?.();
+  }
+
+  /**
+   * Run work inside a background transaction. If the agent cannot start
+   * one, the work still runs - the stream matters more than the telemetry.
+   */
+  traced(name, work) {
+    let started = false;
+    const run = () => {
+      started = true;
+      return work();
+    };
     try {
-      if (telemetry.summary) this.newrelic.recordCustomEvent('OrderStreamSample', telemetry.summary);
-    } catch { /* telemetry must never break the stream */ }
+      const result = this.newrelic.startBackgroundTransaction(name, run);
+      if (started) return result;
+    } catch (err) {
+      if (started) throw err;
+    }
+    return run();
   }
 
   /** Concurrency gauge: how many sockets are open right now. */
@@ -253,8 +247,14 @@ class OrderStatusStream {
       this.subscribers.set(orderId, set);
     }
     set.add(socket);
-    // Snapshot: the subscriber's first paint, and the answer it keeps
-    // if the worker never advances the order (I11's freeze included).
+    await this.traced('OrderStatusStream/subscribe', () => this.sendSnapshot(socket, orderId));
+  }
+
+  /**
+   * The subscriber's first paint, and the answer it keeps if the worker
+   * never advances the order (I11's freeze included).
+   */
+  async sendSnapshot(socket, orderId) {
     let status = null;
     const lookupStarted = Date.now();
     try {
@@ -263,7 +263,17 @@ class OrderStatusStream {
       if (socket.telemetry) socket.telemetry.snapshotFailed = true;
       this.logger?.warn({ err, orderId }, 'Order status stream: snapshot lookup failed');
     }
-    if (socket.telemetry) socket.telemetry.snapshotLookupMs = Date.now() - lookupStarted;
+    const snapshotLookupMs = Date.now() - lookupStarted;
+    if (socket.telemetry) socket.telemetry.snapshotLookupMs = snapshotLookupMs;
+    try {
+      const attributes = {
+        orderId,
+        snapshotLookupMs,
+        snapshotFailed: socket.telemetry?.snapshotFailed ?? false,
+      };
+      if (socket.telemetry?.demoCode) attributes.demoCode = socket.telemetry.demoCode;
+      this.newrelic.addCustomAttributes(attributes);
+    } catch { /* attributes are best-effort */ }
     this.send(socket, orderId, status ?? 'pending', 'snapshot');
   }
 

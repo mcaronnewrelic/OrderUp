@@ -80,7 +80,7 @@ Other modules:
 
 `server/order-status-stream.js` is a WebSocket endpoint at `/api/orders/stream`, under `/api/` because the nginx `/api/` location is where upgrades are forwarded. `start.js` attaches it to the HTTP server and wires the worker's `onAdvance` callback to it, so each committed batch pushes the changed orders' new statuses to subscribed browsers. A subscribe first answers with a snapshot read through the app's `getOrderById`.
 
-The stream instruments itself: each connection runs in a background transaction (`OrderStatusStream/connection`), ends with an `OrderStreamSample` event that says who connected, what they saw and how it ended, and sends an `OrderStreamPush` event for every status frame. On the client, `OrderStatusService` owns the channel (REST seed, socket pushes, reconnects, then a polling fallback), persists the tracked order so the header's status pill follows it across pages, and reports its own `order_tracker_*` PageActions. The `order-tracker` component draws the stages on the Thank You page and on every order in My Orders.
+The stream instruments itself: each subscribe runs in a short background transaction (`OrderStatusStream/subscribe`), each connection ends with an `OrderStreamSample` event that says who connected, what they saw and how it ended, and sends an `OrderStreamPush` event for every status frame. On the client, `OrderStatusService` owns the channel (REST seed, socket pushes, reconnects, then a polling fallback), persists the tracked order so the header's status pill follows it across pages, and reports its own `order_tracker_*` PageActions. The `order-tracker` component draws the stages on the Thank You page and on every order in My Orders.
 
 ## Docker and databases
 

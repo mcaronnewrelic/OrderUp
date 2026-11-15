@@ -1053,7 +1053,7 @@
             "id": "viz.markdown"
           },
           "rawConfiguration": {
-            "text": "## Live order tracking\nOne tracker connection, three records. **Browser:** the browser agent emits one `WebSocket` event per connection, when it closes. **APM:** the socket upgrade bypasses Express, so no web transaction exists - the server wraps each connection in a background transaction (`OrderStatusStream/connection`) by hand. **Custom event:** at close the server also emits `OrderStreamSample` with the final counts. Compare `messagesSent` (server) with `messageCount` (browser): both should be 1 snapshot + 1 push per stage watched. This page is not filtered by demoCode, so it counts every connection, simulated ones included - but the server's records now carry `demoCode`, so any of its queries can be narrowed to one visitor."
+            "text": "## Live order tracking\nOne tracker connection, three records. **Browser:** the browser agent emits one `WebSocket` event per connection, when it closes. **APM:** the socket upgrade bypasses Express, so no web transaction exists - the server wraps each subscribe (the snapshot lookup) in a short background transaction (`OrderStatusStream/subscribe`) by hand, so APM response times stay meaningful - the connection's length is not a transaction. **Custom event:** at close the server also emits `OrderStreamSample` with the final counts and `connectedDurationMs`. Compare `messagesSent` (server) with `messageCount` (browser): both should be 1 snapshot + 1 push per stage watched. This page is not filtered by demoCode, so it counts every connection, simulated ones included - but the server's records now carry `demoCode`, so any of its queries can be narrowed to one visitor."
           }
         },
         {
@@ -1095,7 +1095,7 @@
                 "accountIds": [
                   1352811
                 ],
-                "query": "SELECT count(*) AS 'Stream transactions' FROM Transaction WHERE name LIKE '%OrderStatusStream/connection%' SINCE 1 day ago"
+                "query": "SELECT count(*) AS 'Stream transactions' FROM Transaction WHERE name LIKE '%OrderStatusStream/subscribe%' SINCE 1 day ago"
               }
             ]
           }
