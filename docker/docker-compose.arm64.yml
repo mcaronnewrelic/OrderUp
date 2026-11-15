@@ -74,6 +74,10 @@ services:
     restart: unless-stopped
     user: postgres
     container_name: orderup-db
+    # Preload at server start (also applies to the temporary init-time server);
+    # otherwise CREATE EXTENSION pg_stat_statements in the init scripts fails
+    # and the schema/restaurant imports never run.
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     env_file:
       - ../.env
     volumes:
@@ -103,38 +107,30 @@ services:
       retries: ${DB_HEALTH_RETRIES:-5}
       start_period: ${DB_HEALTH_START_PERIOD:-60s}
 
-  # New Relic Infrastructure Agent for container monitoring (ARM64 Mock)
+  # New Relic Infrastructure agent (real agent, multi-arch image). Pinned to
+  # the same version as the staging instance. On Docker Desktop the "host" it
+  # reports is the Docker VM, not the developer machine.
   newrelic-infra:
-    build:
-      context: ..
-      dockerfile: docker/newrelic-infra.arm64.dockerfile # Use ARM64-compatible mock
+    image: newrelic/infrastructure:2.0.1
     container_name: orderup-infra
     restart: unless-stopped
-    env_file:
-      - ../.env
-    # Reduced capabilities for local development
+    cap_add:
+      - SYS_PTRACE
+    privileged: true
+    pid: host
+    network_mode: host
+    volumes:
+      - /:/host:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - NRIA_LICENSE_KEY=${NRIA_LICENSE_KEY:-${NEW_RELIC_LICENSE_KEY:-your-license-key-here}}
+      - NRIA_DISPLAY_NAME=${MONITORING_DISPLAY_NAME:-OrderUp-Infra-Docker-Local}
+      - NRIA_VERBOSE=${MONITORING_VERBOSE:-0}
+      - NRIA_CUSTOM_ATTRIBUTES={"environment":"local-docker","application":"orderup"}
     depends_on:
       - orderup
       - db
       - nginx
-    volumes:
-      # Minimal volume mounts for local development
-      - "../newrelic-integrations:/etc/newrelic-infra/integrations.d:ro"
-    environment:
-      - TINI_SUBREAPER=1
-      - NRIA_DISPLAY_NAME=${MONITORING_DISPLAY_NAME:-OrderUp-Infra-Docker-ARM64}
-      - NRIA_VERBOSE=${MONITORING_VERBOSE:-1}
-      - NRIA_LICENSE_KEY=${NRIA_LICENSE_KEY:-your-license-key-here}
-      # Custom attributes for easier filtering in New Relic
-      - NRIA_CUSTOM_ATTRIBUTES={"environment":"local-arm64","application":"orderup"}
-    networks:
-      - orderup_network
-    healthcheck:
-      test: ["CMD-SHELL", "/usr/local/bin/healthcheck.sh"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
 # Docker volumes for persistent data
 volumes:
