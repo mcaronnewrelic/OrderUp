@@ -1,10 +1,11 @@
-import { Component, ChangeDetectionStrategy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, effect, inject, signal, untracked } from '@angular/core';
 
 import { RouterModule } from '@angular/router';
 import { CartService } from '../../services/cart.service';
 import { NrConfigService } from '../../nr-config';
 import { DemoIdentityService } from '../../services/demo-identity.service';
 import { OrderStatusService, ORDER_STAGES } from '../../services/order-status.service';
+import { AgentReachabilityService } from '../../services/agent-reachability.service';
 
 @Component({
   selector: 'app-header',
@@ -26,7 +27,29 @@ export class HeaderComponent {
     public nrConfig: NrConfigService,
     public demoIdentity: DemoIdentityService,
     public orderStatus: OrderStatusService
-  ) {}
+  ) {
+    // Bump the cart icon whenever the item count goes up.
+    let previous = this.cartService.totalItems();
+    effect(() => {
+      const count = this.cartService.totalItems();
+      if (count > previous) {
+        untracked(() => this.cartBump.set(true));
+        setTimeout(() => this.cartBump.set(false), 450);
+      }
+      previous = count;
+    });
+
+    // Behind the scenes is about finding your own data in New Relic, so
+    // that is the moment to check this browser can send any (ad blockers
+    // and DNS filters often stop the browser agent without a sound).
+    effect(() => {
+      if (this.nrConfig.showCallouts()) this.agentReachability.check();
+    });
+  }
+
+  protected readonly agentReachability = inject(AgentReachabilityService);
+
+  protected readonly cartBump = signal(false);
 
   get cartItemCount() {
     return this.cartService.totalItems();

@@ -2,6 +2,7 @@
 <app-header></app-header>
 
 <div class="container">
+  <app-order-steps [step]="4"></app-order-steps>
   <div class="row">
     <div class="col-md-12">
       <h2 class="mb-4">Checkout</h2>
@@ -274,5 +275,8 @@
             [options]="['The last hour', 'The last day', 'Everything — no time limit']"
             answer="The last hour"
             proves="With no SINCE, a query defaults to the last 60 minutes. Your order from a moment ago is in the window; yesterday's orders are not — add SINCE when you want them."></app-nr-check>
+        </app-nr-callout>
+        <app-nr-callout title="The ordering funnel" [nrql]="funnelNrql" buttonLabel="See the funnel" scope="cohort">
+          Each stage of ordering sends one browser event with <code>addPageAction()</code>: browsing restaurants, opening a menu, adding to the cart, starting checkout and placing the order. NRQL's <code>funnel()</code> counts how many sessions reached each stage, so you can see where people drop off. Arriving on this page just sent <code>checkout_started</code>.
         </app-nr-callout>
       </div>

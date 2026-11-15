@@ -27,12 +27,38 @@
  * server-side mirror of the browser agent's WebSocket event, which is
  * likewise emitted once per connection, at close. Telemetry is
  * best-effort throughout: it must never break the stream.
+ *
+ * What the telemetry is for (diagnosis, not just counting):
+ *  - OrderStreamSample / the transaction's attributes answer "what
+ *    happened on this connection": who (demoCode), which order, what
+ *    the client saw (firstStatus -> lastStatus), whether it saw the
+ *    order through (outcome), how it ended (closeCode + closeCategory),
+ *    and where time went (subscribeDelayMs, snapshotLookupMs,
+ *    msToFirstPush, idleBeforeCloseMs).
+ *  - OrderStreamPush (one per status frame sent) answers "what was
+ *    delivered to whom, and when" - a stuck tracker shows up as a
+ *    snapshot with no pushes after it.
+ *  - Custom/OrderStream/OpenConnections is the concurrency gauge.
  */
 const { WebSocketServer, WebSocket } = require('ws');
 const defaultNewrelic = require('newrelic');
 
 const STREAM_PATH = '/api/orders/stream';
 const PING_INTERVAL_MS = 30000;
+const TERMINAL_STATUSES = ['delivered', 'cancelled'];
+const DEMO_CODE_PATTERN = /^(OU|SIM)-[A-Z0-9]{4}$/;
+
+/** Plain-language reading of a WebSocket close code, as seen server-side. */
+function closeCategory(closeCode, heartbeatTimeout) {
+  if (heartbeatTimeout) return 'heartbeat_timeout'; // we terminated a dead peer
+  switch (closeCode) {
+    case 1000: return 'normal';
+    case 1001: return 'client_navigated_away';
+    case 1005: return 'client_closed'; // close() with no code: the tracker finished
+    case 1006: return 'abnormal_drop'; // no close frame: network or process died
+    default: return 'other';
+  }
+}
 
 class OrderStatusStream {
   /**
@@ -59,8 +85,13 @@ class OrderStatusStream {
       socket.on('close', (code) => {
         this.endTelemetry(socket, code);
         this.unsubscribeAll(socket);
+        this.recordOpenConnections();
       });
-      socket.on('error', () => this.unsubscribeAll(socket));
+      socket.on('error', () => {
+        if (socket.telemetry) socket.telemetry.errors += 1;
+        this.unsubscribeAll(socket);
+      });
+      this.recordOpenConnections();
     });
   }
 
@@ -73,10 +104,22 @@ class OrderStatusStream {
   beginTelemetry(socket) {
     const telemetry = {
       orderId: null,
+      demoCode: null,
       messagesReceived: 0,
       messagesSent: 0,
       pushesSent: 0,
+      errors: 0,
       connectedAt: Date.now(),
+      subscribedAt: null,
+      snapshotLookupMs: null,
+      snapshotFailed: false,
+      firstStatus: null,
+      lastStatus: null,
+      firstPushAt: null,
+      lastSentAt: null,
+      heartbeatTimeout: false,
+      openConnectionsAtStart: this.wss.clients.size,
+      summary: null,
       release: null,
     };
     const released = new Promise((resolve) => { telemetry.release = resolve; });
@@ -85,13 +128,8 @@ class OrderStatusStream {
         const txn = this.newrelic.getTransaction();
         await released;
         try {
-          const attributes = {
-            messagesReceived: telemetry.messagesReceived,
-            messagesSent: telemetry.messagesSent,
-            pushesSent: telemetry.pushesSent,
-          };
-          if (telemetry.orderId) attributes.orderId = telemetry.orderId;
-          this.newrelic.addCustomAttributes(attributes);
+          // Final by now: endTelemetry builds the summary before releasing.
+          this.newrelic.addCustomAttributes(telemetry.summary ?? this.summarise(telemetry, 0));
         } catch { /* attributes are best-effort */ }
         txn?.end();
       });
@@ -99,22 +137,64 @@ class OrderStatusStream {
     return telemetry;
   }
 
+  /**
+   * One connection's story as flat attributes - shared by the
+   * transaction and the OrderStreamSample so the two records agree.
+   */
+  summarise(telemetry, closeCode) {
+    const now = Date.now();
+    const subscribed = telemetry.subscribedAt != null;
+    const reachedTerminal = TERMINAL_STATUSES.includes(telemetry.lastStatus);
+    const attributes = {
+      messagesReceived: telemetry.messagesReceived,
+      messagesSent: telemetry.messagesSent,
+      pushesSent: telemetry.pushesSent,
+      connectedDurationMs: now - telemetry.connectedAt,
+      closeCode: closeCode ?? 0,
+      closeCategory: closeCategory(closeCode ?? 0, telemetry.heartbeatTimeout),
+      // Did the visitor see the order through? The quickest triage facet.
+      outcome: !subscribed
+        ? 'never_subscribed'
+        : reachedTerminal
+          ? 'saw_final_status'
+          : 'left_before_final_status',
+      subscribed,
+      reachedTerminal,
+      snapshotFailed: telemetry.snapshotFailed,
+      errors: telemetry.errors,
+      idleBeforeCloseMs: now - (telemetry.lastSentAt ?? telemetry.connectedAt),
+      openConnectionsAtStart: telemetry.openConnectionsAtStart,
+    };
+    if (telemetry.orderId) attributes.orderId = telemetry.orderId;
+    if (telemetry.demoCode) attributes.demoCode = telemetry.demoCode;
+    if (telemetry.firstStatus) attributes.firstStatus = telemetry.firstStatus;
+    if (telemetry.lastStatus) attributes.lastStatus = telemetry.lastStatus;
+    if (subscribed) attributes.subscribeDelayMs = telemetry.subscribedAt - telemetry.connectedAt;
+    if (telemetry.snapshotLookupMs != null) attributes.snapshotLookupMs = telemetry.snapshotLookupMs;
+    if (telemetry.firstPushAt != null && subscribed) {
+      attributes.msToFirstPush = telemetry.firstPushAt - telemetry.subscribedAt;
+    }
+    return attributes;
+  }
+
   /** Close the background transaction and emit the OrderStreamSample. */
   endTelemetry(socket, closeCode) {
     const telemetry = socket.telemetry;
     if (!telemetry) return;
     socket.telemetry = null;
+    try {
+      telemetry.summary = this.summarise(telemetry, closeCode);
+    } catch { /* telemetry must never break the stream */ }
     telemetry.release?.();
     try {
-      const attributes = {
-        messagesReceived: telemetry.messagesReceived,
-        messagesSent: telemetry.messagesSent,
-        pushesSent: telemetry.pushesSent,
-        connectedDurationMs: Date.now() - telemetry.connectedAt,
-        closeCode: closeCode ?? 0,
-      };
-      if (telemetry.orderId) attributes.orderId = telemetry.orderId;
-      this.newrelic.recordCustomEvent('OrderStreamSample', attributes);
+      if (telemetry.summary) this.newrelic.recordCustomEvent('OrderStreamSample', telemetry.summary);
+    } catch { /* telemetry must never break the stream */ }
+  }
+
+  /** Concurrency gauge: how many sockets are open right now. */
+  recordOpenConnections() {
+    try {
+      this.newrelic.recordMetric?.('Custom/OrderStream/OpenConnections', this.wss.clients.size);
     } catch { /* telemetry must never break the stream */ }
   }
 
@@ -137,7 +217,11 @@ class OrderStatusStream {
     });
     this.pingTimer = setInterval(() => {
       for (const socket of this.wss.clients) {
-        if (socket.isAlive === false) { socket.terminate(); continue; }
+        if (socket.isAlive === false) {
+          if (socket.telemetry) socket.telemetry.heartbeatTimeout = true;
+          socket.terminate();
+          continue;
+        }
         socket.isAlive = false;
         socket.ping();
       }
@@ -155,7 +239,14 @@ class OrderStatusStream {
     }
     if (message?.type !== 'subscribe' || message.orderId == null) return;
     const orderId = String(message.orderId);
-    if (socket.telemetry) socket.telemetry.orderId = orderId;
+    if (socket.telemetry) {
+      socket.telemetry.orderId = orderId;
+      socket.telemetry.subscribedAt ??= Date.now();
+      // Optional, and validated: it is only ever used as a telemetry label.
+      if (typeof message.demoCode === 'string' && DEMO_CODE_PATTERN.test(message.demoCode)) {
+        socket.telemetry.demoCode = message.demoCode;
+      }
+    }
     let set = this.subscribers.get(orderId);
     if (!set) {
       set = new Set();
@@ -165,12 +256,15 @@ class OrderStatusStream {
     // Snapshot: the subscriber's first paint, and the answer it keeps
     // if the worker never advances the order (I11's freeze included).
     let status = null;
+    const lookupStarted = Date.now();
     try {
       status = await this.getStatus(orderId);
     } catch (err) {
+      if (socket.telemetry) socket.telemetry.snapshotFailed = true;
       this.logger?.warn({ err, orderId }, 'Order status stream: snapshot lookup failed');
     }
-    this.send(socket, orderId, status ?? 'pending');
+    if (socket.telemetry) socket.telemetry.snapshotLookupMs = Date.now() - lookupStarted;
+    this.send(socket, orderId, status ?? 'pending', 'snapshot');
   }
 
   /** Called by the worker wiring for every order it advanced. */
@@ -180,15 +274,37 @@ class OrderStatusStream {
     for (const socket of set) {
       if (socket.readyState === WebSocket.OPEN && socket.telemetry) {
         socket.telemetry.pushesSent += 1;
+        socket.telemetry.firstPushAt ??= Date.now();
       }
-      this.send(socket, String(orderId), status);
+      this.send(socket, String(orderId), status, 'push', set.size);
     }
   }
 
-  send(socket, orderId, status) {
+  /**
+   * @param kind 'snapshot' (the answer to a subscribe) or 'push' (a
+   *             worker advance) - telemetry only, not on the wire.
+   */
+  send(socket, orderId, status, kind = 'push', subscribers = 1) {
     if (socket.readyState !== WebSocket.OPEN) return;
     socket.send(JSON.stringify({ type: 'status', orderId, status }));
-    if (socket.telemetry) socket.telemetry.messagesSent += 1;
+    const telemetry = socket.telemetry;
+    if (!telemetry) return;
+    const now = Date.now();
+    telemetry.messagesSent += 1;
+    telemetry.firstStatus ??= status;
+    telemetry.lastStatus = status;
+    telemetry.lastSentAt = now;
+    try {
+      const attributes = {
+        orderId,
+        status,
+        kind,
+        subscribers,
+        msSinceSubscribe: telemetry.subscribedAt != null ? now - telemetry.subscribedAt : 0,
+      };
+      if (telemetry.demoCode) attributes.demoCode = telemetry.demoCode;
+      this.newrelic.recordCustomEvent('OrderStreamPush', attributes);
+    } catch { /* telemetry must never break the stream */ }
   }
 
   unsubscribeAll(socket) {

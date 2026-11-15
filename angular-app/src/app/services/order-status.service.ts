@@ -1,5 +1,7 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { NewRelicService } from './newrelic.service';
+import { loadOrCreateDemoCode } from './demo-identity-bootstrap';
 
 const TERMINAL = ['delivered', 'cancelled'];
 const MAX_RECONNECTS = 3;
@@ -53,6 +55,8 @@ export class OrderStatusService {
   readonly restaurantName = signal<string | null>(null);
   /** Whether the header pill should be on screen. */
   readonly pillVisible = signal(false);
+  /** Id of the order being watched, or null - lets a page spot "its" order. */
+  readonly trackedOrderId = signal<string | null>(null);
 
   /** Index into ORDER_STAGES for the current status, or -1. */
   readonly stageIndex = computed(() => {
@@ -76,6 +80,31 @@ export class OrderStatusService {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private lingerTimer: ReturnType<typeof setTimeout> | null = null;
   private stopped = true;
+  private newRelic = inject(NewRelicService);
+  private trackedAt = 0;
+  private socketOpenedAt = 0;
+
+  /**
+   * The tracker's own telemetry. The browser agent's WebSocket event only
+   * arrives when a connection closes and cannot say why the tracker fell
+   * back to polling or which status the visitor actually saw - these
+   * PageActions can:
+   *  - order_tracker_status: each status the tracker painted, how it
+   *    arrived (websocket / rest) and how long after tracking began
+   *  - order_tracker_connection: open, closed (with code), reconnect
+   *    attempts and the fall back to polling
+   */
+  private report(action: string, attributes: Record<string, string | number | boolean>): void {
+    try {
+      this.newRelic.addPageAction(action, {
+        ...attributes,
+        orderId: this.orderId ?? '',
+        feature: 'order_tracker',
+      });
+    } catch {
+      /* telemetry must never break the tracker */
+    }
+  }
 
   constructor(private http: HttpClient) {
     this.resume();
@@ -86,6 +115,8 @@ export class OrderStatusService {
     this.clearLinger();
     this.stopped = false;
     this.orderId = orderId;
+    this.trackedOrderId.set(orderId);
+    this.trackedAt = Date.now();
     this.restaurantName.set(restaurantName ?? null);
     this.status.set(null);
     this.reconnects = 0;
@@ -103,6 +134,7 @@ export class OrderStatusService {
     this.clearLinger();
     this.stopped = true;
     this.orderId = null;
+    this.trackedOrderId.set(null);
     this.restaurantName.set(null);
     this.pillVisible.set(false);
     try {
@@ -127,6 +159,8 @@ export class OrderStatusService {
     }
     this.stopped = false;
     this.orderId = stored.orderId;
+    this.trackedOrderId.set(stored.orderId);
+    this.trackedAt = stored.trackedAt;
     this.restaurantName.set(stored.restaurantName ?? null);
     this.pillVisible.set(true);
     this.fetchOnce();
@@ -154,43 +188,75 @@ export class OrderStatusService {
     try {
       socket = new WebSocket(`${scheme}//${window.location.host}/api/orders/stream`);
     } catch {
-      this.startPolling();
+      this.startPolling('socket_unavailable');
       return;
     }
     this.socket = socket;
 
     socket.onopen = () => {
       this.live.set(true);
+      this.socketOpenedAt = Date.now();
+      this.report('order_tracker_connection', {
+        event: 'open',
+        reconnects: this.reconnects,
+      });
       this.reconnects = 0;
-      socket.send(JSON.stringify({ type: 'subscribe', orderId: this.orderId }));
+      // demoCode rides along so the server can stamp its own record of
+      // this connection (OrderStreamSample) with the visitor's code.
+      socket.send(
+        JSON.stringify({
+          type: 'subscribe',
+          orderId: this.orderId,
+          demoCode: loadOrCreateDemoCode(),
+        }),
+      );
     };
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(String(event.data)) as StatusMessage;
         if (message.type === 'status' && String(message.orderId) === this.orderId) {
-          this.applyStatus(message.status);
+          this.applyStatus(message.status, 'websocket');
         }
       } catch {
         /* not our protocol */
       }
     };
-    socket.onclose = () => {
+    socket.onclose = (event) => {
       this.live.set(false);
       if (this.stopped || !this.orderId) return;
       if (TERMINAL.includes(this.status() ?? '')) return;
+      // An unexpected close: the order is still moving but the socket is gone.
+      this.report('order_tracker_connection', {
+        event: 'closed',
+        closeCode: event?.code ?? 0,
+        wasClean: !!event?.wasClean,
+        connectedMs: this.socketOpenedAt ? Date.now() - this.socketOpenedAt : 0,
+        lastStatus: this.status() ?? 'none',
+      });
+      this.socketOpenedAt = 0;
       if (this.reconnects < MAX_RECONNECTS) {
         const delay = 1000 * 2 ** this.reconnects;
         this.reconnects += 1;
+        this.report('order_tracker_connection', {
+          event: 'reconnect',
+          attempt: this.reconnects,
+          delayMs: delay,
+        });
         this.reconnectTimer = setTimeout(() => this.connect(), delay);
       } else {
-        this.startPolling();
+        this.startPolling('reconnects_exhausted');
       }
     };
     socket.onerror = () => socket.close();
   }
 
-  private startPolling(): void {
+  private startPolling(reason: string): void {
     if (this.pollTimer || this.stopped) return;
+    this.report('order_tracker_connection', {
+      event: 'polling_fallback',
+      reason,
+      lastStatus: this.status() ?? 'none',
+    });
     this.pollTimer = setInterval(() => this.fetchOnce(), POLL_INTERVAL_MS);
   }
 
@@ -198,7 +264,7 @@ export class OrderStatusService {
     if (!this.orderId) return;
     this.http.get<{ status?: string }>(`/api/orders/${this.orderId}`).subscribe({
       next: (order) => {
-        if (order?.status) this.applyStatus(order.status);
+        if (order?.status) this.applyStatus(order.status, 'rest');
       },
       error: () => {
         /* the tracker keeps its last known status */
@@ -206,7 +272,15 @@ export class OrderStatusService {
     });
   }
 
-  private applyStatus(status: string): void {
+  private applyStatus(status: string, transport: 'websocket' | 'rest'): void {
+    if (status !== this.status()) {
+      this.report('order_tracker_status', {
+        status,
+        previousStatus: this.status() ?? 'none',
+        transport,
+        msSinceTracked: this.trackedAt ? Date.now() - this.trackedAt : 0,
+      });
+    }
     this.status.set(status);
     if (TERMINAL.includes(status)) {
       // Nothing more will change: close the channel down politely,
@@ -216,6 +290,7 @@ export class OrderStatusService {
       this.clearLinger();
       this.lingerTimer = setTimeout(() => {
         this.pillVisible.set(false);
+        this.trackedOrderId.set(null);
         try {
           localStorage.removeItem(STORAGE_KEY);
         } catch {

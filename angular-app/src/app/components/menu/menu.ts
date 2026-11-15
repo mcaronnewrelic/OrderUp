@@ -4,6 +4,7 @@ import {
   signal,
   computed,
   ChangeDetectionStrategy,
+  inject,
 } from '@angular/core';
 
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
@@ -13,15 +14,19 @@ import { RestaurantService } from '../../services/restaurant.service';
 import { CartService } from '../../services/cart.service';
 import { CustomerService } from '../../services/customer.service';
 import { Restaurant, MenuItem } from '../../models/restaurant.model';
+import { OrderStepsComponent } from '../order-steps/order-steps';
+import { FunnelService } from '../../services/funnel.service';
 
 @Component({
   selector: 'app-menu',
-  imports: [RouterModule, HeaderComponent, FormsModule],
+  imports: [RouterModule, HeaderComponent, FormsModule, OrderStepsComponent],
   templateUrl: './menu.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './menu.css',
 })
 export class MenuComponent implements OnInit {
+  private funnel = inject(FunnelService);
+
   restaurant = signal<Restaurant | null>(null);
   loading = signal(true);
   error = signal<string | null>(null);
@@ -89,6 +94,11 @@ export class MenuComponent implements OnInit {
       next: (restaurant) => {
         this.restaurant.set(restaurant);
         this.loading.set(false);
+        this.funnel.track('menu_viewed', {
+          restaurant: restaurant.name,
+          cuisine: restaurant.cuisine,
+          itemCount: restaurant.menuItems?.length ?? 0,
+        });
       },
       error: (err) => {
         console.error('Error loading restaurant:', err);
@@ -107,6 +117,13 @@ export class MenuComponent implements OnInit {
         restaurant: restaurant,
       });
       if (!added) return;
+      this.funnel.track('add_to_cart', {
+        restaurant: restaurant.name,
+        item: item.name,
+        price: item.price,
+        cartItems: this.cartService.totalItems(),
+        cartTotal: Number(this.cartService.totalPrice().toFixed(2)),
+      });
       this.addingToCart.set(item.id);
 
       // Add to recently added set for visual feedback

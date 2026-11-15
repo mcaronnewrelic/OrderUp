@@ -49,18 +49,18 @@
 
 .menu-item-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 6px 16px rgba(0, 123, 255, 0.15);
-  border-color: #007bff;
+  box-shadow: 0 6px 16px rgba(194, 65, 12, 0.15);
+  border-color: var(--ou-primary);
 }
 
 .menu-item-card:focus {
-  outline: 2px solid #007bff;
+  outline: 2px solid var(--ou-primary);
   outline-offset: 2px;
 }
 
 .menu-item-card:active {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+  box-shadow: 0 2px 8px rgba(194, 65, 12, 0.1);
 }
 
 /* Adding to cart animation */
@@ -188,14 +188,14 @@
 
 /* Enhanced button styles */
 .btn-primary {
-  background-color: #007bff;
-  border-color: #007bff;
+  background-color: var(--ou-primary);
+  border-color: var(--ou-primary);
   transition: all 0.2s ease-in-out;
 }
 
 .btn-primary:hover {
-  background-color: #0056b3;
-  border-color: #0056b3;
+  background-color: var(--ou-primary-dark);
+  border-color: var(--ou-primary-dark);
   transform: translateY(-1px);
 }
 
@@ -225,4 +225,67 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
+}
+
+/* Brand refresh */
+.menu-page {
+  padding-bottom: 5.5rem; /* room for the floating cart bar */
+}
+
+.menu-stars {
+  color: var(--ou-accent);
+  letter-spacing: 0.08em;
+}
+
+.menu-stars-empty {
+  color: #dccfc0;
+}
+
+.cart-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  z-index: 1030;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.6rem 0.7rem 0.6rem 0.6rem;
+  border-radius: 999px;
+  background: var(--ou-ink);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(36, 22, 15, 0.35);
+  transform: translateX(-50%);
+  animation: cart-bar-in 0.3s ease-out;
+}
+
+.cart-bar-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  background: var(--ou-primary);
+  font-weight: 700;
+}
+
+.cart-bar-text {
+  white-space: nowrap;
+}
+
+.cart-bar-bump .cart-bar-count {
+  animation: cart-count-pop 0.45s ease-out;
+}
+
+@keyframes cart-bar-in {
+  from { opacity: 0; transform: translate(-50%, 1rem); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes cart-count-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.45); }
+  100% { transform: scale(1); }
 }

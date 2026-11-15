@@ -1,4 +1,4 @@
-<nav class="navbar navbar-expand-xl navbar-dark bg-primary">
+<nav class="navbar navbar-expand-xl ou-navbar">
   <div class="container-fluid px-3">
     <!-- Brand/Logo -->
     <a class="navbar-brand d-flex align-items-center" routerLink="/">
@@ -69,7 +69,8 @@
         <!-- Cart -->
         @if (cartItemCount > 0) {
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle position-relative" href="#" role="button" data-bs-toggle="dropdown">
+            <a class="nav-link dropdown-toggle position-relative cart-link" href="#" role="button" data-bs-toggle="dropdown"
+              [class.cart-bump]="cartBump()" aria-label="Cart">
               <i class="fas fa-shopping-cart"></i>
               <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
                 {{ cartItemCount }}
@@ -120,6 +121,25 @@
     </div>
   </div>
 </nav>
+
+<!-- Shown only with Behind the scenes on, and only to a visitor whose
+     browser cannot reach New Relic (ad blocker, Pi-hole, DNS filter) -->
+@if (nrConfig.showCallouts() && agentReachability.blockedHosts().length > 0) {
+  <div class="agent-note" role="note">
+    <i class="fas fa-shield-alt me-2" aria-hidden="true"></i>
+    <span>
+      This browser can't reach
+      @for (host of agentReachability.blockedHosts(); track host; let last = $last) {
+        <code>{{ host }}</code>{{ last ? '' : ' or ' }}
+      }
+      — usually an ad blocker or a DNS filter such as Pi-hole. Until
+      {{ agentReachability.blockedHosts().length > 1 ? 'they are' : 'it is' }}
+      allowed, your page views and clicks won't reach New Relic, so queries
+      on browser data will come back empty for you. Server-side data is
+      unaffected.
+    </span>
+  </div>
+}
 
 <!-- Which investigation is live (spec section 11); always shown -->
 @if (nrConfig.armedInvestigation(); as inv) {

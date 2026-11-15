@@ -12,7 +12,7 @@ export interface Order {
   orderNumber: string;
   restaurantId: string;
   restaurantName: string;
-  status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+  status: 'pending' | 'preparing' | 'out_for_delivery' | 'delivered' | 'cancelled';
   totalAmount: number;
   deliveryAddress: string;
   deliveryFee: number;

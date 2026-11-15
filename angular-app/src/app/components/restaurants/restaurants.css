@@ -11,11 +11,11 @@
 .clickable-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-  border-color: #0d6efd;
+  border-color: var(--ou-primary);
 }
 
 .clickable-card:focus {
-  outline: 2px solid #0d6efd;
+  outline: 2px solid var(--ou-primary);
   outline-offset: 2px;
 }
 
@@ -73,7 +73,7 @@
 }
 
 .card-header .btn-link:hover {
-  color: #0d6efd;
+  color: var(--ou-primary);
 }
 
 .card-header .btn-link:focus {
@@ -92,4 +92,120 @@
   .card-body {
     padding: 1rem 0.75rem;
   }
+}
+/* Brand refresh: compact cards with the photo at its native size. */
+.cuisine-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cuisine-chip {
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--ou-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ou-ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.cuisine-chip:hover {
+  border-color: var(--ou-primary);
+  color: var(--ou-primary);
+}
+
+.cuisine-chip.active {
+  border-color: var(--ou-primary);
+  background: var(--ou-primary);
+  color: #fff;
+}
+
+.restaurant-card {
+  border-color: var(--ou-line);
+}
+
+.restaurant-thumb {
+  flex: none;
+  width: 104px;
+  height: 104px;
+  border-radius: 0.85rem;
+  object-fit: cover;
+  background: var(--ou-primary-soft);
+}
+
+.min-w-0 {
+  min-width: 0;
+}
+
+.restaurant-name {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.restaurant-price {
+  flex: none;
+  color: var(--ou-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.restaurant-cuisine {
+  color: var(--ou-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.restaurant-description {
+  display: -webkit-box;
+  margin: 0.35rem 0 0;
+  overflow: hidden;
+  color: var(--ou-muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.rating-stars {
+  color: var(--ou-accent);
+  letter-spacing: 0.05em;
+}
+
+.rating-empty {
+  color: #dccfc0;
+}
+
+.rating-value {
+  margin-left: 0.3rem;
+  color: var(--ou-muted);
+  font-weight: 600;
+}
+
+.restaurant-cta {
+  color: var(--ou-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.restaurant-cta i {
+  transition: transform 0.2s ease;
+}
+
+.clickable-card:hover .restaurant-cta i {
+  transform: translateX(4px);
+}
+
+.cuisine-chip-count {
+  margin-left: 0.3rem;
+  opacity: 0.6;
+  font-size: 0.8em;
+  font-weight: 500;
 }

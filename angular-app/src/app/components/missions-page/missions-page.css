@@ -4,10 +4,11 @@
 
 .fm-steps .list-group-item {
   border: none;
-  border-left: 4px solid #007bff;
+  border-left: 4px solid var(--ou-primary);
   margin-bottom: 1rem;
   padding: 1.5rem;
-  background-color: #f8f9fa;
+  background-color: #fff;
+  box-shadow: var(--ou-shadow);
   border-radius: 0.5rem;
   transition: all 0.3s ease;
 }

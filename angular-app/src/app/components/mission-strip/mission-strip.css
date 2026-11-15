@@ -11,6 +11,7 @@
 }
 
 .mission-strip-label {
+  color: #1ce783;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -47,4 +48,10 @@
 
 .mission-tick.current {
   box-shadow: 0 0 0 2px #0d1b1b, 0 0 0 4px #1ce783;
+}
+
+.mission-strip-label:hover,
+.mission-strip-label:focus-visible {
+  color: #fff;
+  text-decoration: underline !important;
 }

@@ -3,6 +3,7 @@ import {
   signal,
   OnInit,
   ChangeDetectionStrategy,
+  inject,
 } from '@angular/core';
 
 import { RouterModule, Router } from '@angular/router';
@@ -14,6 +15,12 @@ import { Customer } from '../../models/restaurant.model';
 import { HeaderComponent } from '../header/header';
 import { NrCalloutComponent } from '../nr-callout/nr-callout';
 import { NrCheckComponent } from '../nr-check/nr-check';
+import { OrderStepsComponent } from '../order-steps/order-steps';
+import {
+  FunnelService,
+  ORDERING_FUNNEL_NRQL,
+} from '../../services/funnel.service';
+import { nameToSlug } from '../../utils/url.utils';
 
 interface PaymentInfo {
   type: string;
@@ -31,6 +38,7 @@ interface PaymentInfo {
     HeaderComponent,
     NrCalloutComponent,
     NrCheckComponent,
+    OrderStepsComponent,
   ],
   templateUrl: './checkout.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -39,6 +47,9 @@ interface PaymentInfo {
 export class CheckoutComponent implements OnInit {
   readonly checkoutNrql =
     "SELECT timestamp, restaurant, itemCount, orderTotal, orderId, duration FROM Transaction WHERE appName = 'OrderUp' AND name = 'WebTransaction/Expressjs/POST//api/order'";
+
+  readonly funnelNrql = ORDERING_FUNNEL_NRQL;
+  private funnel = inject(FunnelService);
 
   submitting = signal(false);
 
@@ -80,6 +91,19 @@ export class CheckoutComponent implements OnInit {
       this.router.navigate(['/customer']);
       return;
     }
+
+    if (this.cartService.totalItems() > 0) {
+      this.funnel.track('checkout_started', this.cartSummary());
+    }
+  }
+
+  /** The cart as funnel attributes: which restaurant, how much. */
+  private cartSummary() {
+    return {
+      restaurant: this.cartService.cartItems()[0]?.restaurant.name ?? '',
+      itemCount: this.cartService.totalItems(),
+      cartTotal: Number(this.cartService.totalPrice().toFixed(2)),
+    };
   }
 
   updateQuantity(menuItemId: string, quantity: number) {
@@ -119,7 +143,17 @@ export class CheckoutComponent implements OnInit {
   }
 
   removeItem(menuItemId: string) {
+    const removed = this.cartService
+      .cartItems()
+      .find((item) => item.menuItem.id === menuItemId);
     this.cartService.removeFromCart(menuItemId);
+    if (removed) {
+      this.funnel.track('cart_item_removed', {
+        restaurant: removed.restaurant.name,
+        item: removed.menuItem.name,
+        cartItems: this.cartService.totalItems(),
+      });
+    }
   }
 
   clearCart() {
@@ -130,7 +164,7 @@ export class CheckoutComponent implements OnInit {
     // Get the first item's restaurant to navigate back
     const firstItem = this.cartService.cartItems()[0];
     if (firstItem) {
-      this.router.navigate(['/menu', firstItem.restaurant.id]);
+      this.router.navigate(['/menu', nameToSlug(firstItem.restaurant.name)]);
     } else {
       this.router.navigate(['/restaurants']);
     }
@@ -156,6 +190,15 @@ export class CheckoutComponent implements OnInit {
         menuItem: { ...item.menuItem },
         restaurant: { ...item.restaurant },
       }));
+
+      const summary = this.cartSummary();
+      this.funnel.track('order_placed', {
+        restaurant: summary.restaurant,
+        itemCount: summary.itemCount,
+        orderTotal: summary.cartTotal,
+        orderId: String(orderResponse.orderId),
+        requestId: orderResponse.requestId,
+      });
 
       // Clear the cart after successful purchase
       this.cartService.clearCart();

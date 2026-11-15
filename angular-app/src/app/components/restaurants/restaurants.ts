@@ -10,10 +10,12 @@ import { HeaderComponent } from '../header/header';
 import { NrCalloutComponent } from '../nr-callout/nr-callout';
 import { NrCheckComponent } from '../nr-check/nr-check';
 import { MissionProgressService } from '../../services/mission-progress.service';
+import { OrderStepsComponent } from '../order-steps/order-steps';
+import { FunnelService } from '../../services/funnel.service';
 
 @Component({
   selector: 'app-restaurants',
-  imports: [CommonModule, RouterModule, FormsModule, CustomerCardComponent, HeaderComponent, NrCalloutComponent, NrCheckComponent],
+  imports: [CommonModule, RouterModule, FormsModule, CustomerCardComponent, HeaderComponent, NrCalloutComponent, NrCheckComponent, OrderStepsComponent],
   templateUrl: './restaurants.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './restaurants.css'
@@ -21,6 +23,8 @@ import { MissionProgressService } from '../../services/mission-progress.service'
 export class RestaurantsComponent implements OnInit {
   readonly listNrql =
     "SELECT count(*), average(duration), percentile(duration, 95) FROM Transaction WHERE appName = 'OrderUp' AND name = 'WebTransaction/Expressjs/GET//api/restaurant' SINCE 1 day ago";
+  readonly clicksNrql =
+    "SELECT timestamp, actionName, filterType, filterValue, resultCount, restaurant, item FROM PageAction WHERE appName = 'OrderUp' AND funnel = 'ordering' AND demoCode = '<code>' SINCE 1 hour ago";
   readonly menuStatusNrql =
     "SELECT count(*) FROM Transaction WHERE appName = 'OrderUp' AND name = 'WebTransaction/Expressjs/GET//api/restaurant/by-name/:name' FACET request.uri, http.statusCode SINCE 1 day ago";
   readonly menuNrql =
@@ -66,14 +70,20 @@ export class RestaurantsComponent implements OnInit {
       });
   });
 
-  cuisineOptions: Record<string, string> = {
-    'american': 'American',
-    'chinese': 'Chinese',
-    'italian': 'Italian',
-    'mexican': 'Mexican',
-    'thai': 'Thai',
-    'indian': 'Indian'
-  };
+  /**
+   * Cuisine chips come from the restaurants actually loaded, most common
+   * first, so a chip can never filter down to nothing.
+   */
+  cuisineOptions = computed(() => {
+    const counts = new Map<string, number>();
+    for (const restaurant of this.allRestaurants()) {
+      if (!restaurant.cuisine) continue;
+      counts.set(restaurant.cuisine, (counts.get(restaurant.cuisine) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([key, count]) => ({ key, count, label: this.getCuisineName(key) }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  });
 
   constructor(
     private restaurantService: RestaurantService,
@@ -89,14 +99,27 @@ export class RestaurantsComponent implements OnInit {
 
     this.restaurantService.getRestaurants().subscribe(restaurants => {
       this.allRestaurants.set(restaurants);
+      this.funnel.track('restaurants_viewed', { resultCount: restaurants.length });
     });
   }
 
   private progress = inject(MissionProgressService);
+  private funnel = inject(FunnelService);
 
   updateFilter(key: string, value: any) {
     this.progress.markTried('mission-2');
     this.filter.update(current => ({ ...current, [key]: value }));
+    this.trackFilter(key, value === null || value === '' ? 'any' : String(value));
+  }
+
+  /** Filtering is client-side, so this PageAction is its only telemetry. */
+  private trackFilter(filterType: string, filterValue: string, selected = true) {
+    this.funnel.track('restaurant_filter_applied', {
+      filterType,
+      filterValue,
+      selected,
+      resultCount: this.filteredRestaurants().length,
+    });
   }
 
   toggleCuisine(cuisine: string) {
@@ -107,14 +130,16 @@ export class RestaurantsComponent implements OnInit {
         : [...current.cuisine, cuisine];
       return { ...current, cuisine: newCuisines };
     });
+    this.trackFilter('cuisine', cuisine, this.filter().cuisine.includes(cuisine));
   }
 
   getCuisineKeys() {
-    return Object.keys(this.cuisineOptions);
+    return this.cuisineOptions().map((option) => option.key);
   }
 
+  /** "czech/slovak" -> "Czech/Slovak" */
   getCuisineName(cuisine: string) {
-    return this.cuisineOptions[cuisine] || cuisine;
+    return cuisine.replace(/(^|[\s/-])([a-z])/g, (_, lead, letter) => lead + letter.toUpperCase());
   }
 
   toggleFilters() {

@@ -1,0 +1,102 @@
+/* Live order tracker (fed by OrderStatusService; see OrderTrackerComponent). */
+.order-tracker {
+  margin: 0 auto;
+  max-width: 560px;
+}
+.tracker-steps {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.tracker-step {
+  flex: 1;
+  text-align: center;
+  position: relative;
+  color: #b3a597;
+}
+.tracker-step::before {
+  content: '';
+  position: absolute;
+  top: 18px;
+  left: -50%;
+  width: 100%;
+  height: 3px;
+  background: var(--ou-line);
+  transition: background 0.4s ease;
+}
+.tracker-step:first-child::before {
+  display: none;
+}
+.tracker-step.done::before,
+.tracker-step.current::before {
+  background: #198754;
+}
+.tracker-dot {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f1e7da;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+.tracker-step.done .tracker-dot {
+  background: #198754;
+  color: #fff;
+}
+.tracker-step.current .tracker-dot {
+  background: var(--ou-primary);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(194, 65, 12, 0.2);
+  animation: tracker-pulse 1.6s ease-in-out infinite;
+}
+.tracker-step.current:last-child .tracker-dot {
+  background: #198754;
+  box-shadow: 0 0 0 4px rgba(25, 135, 84, 0.2);
+  animation: none;
+}
+@keyframes tracker-pulse {
+  50% { box-shadow: 0 0 0 8px rgba(194, 65, 12, 0.08); }
+}
+.tracker-label {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+}
+.tracker-step.done .tracker-label {
+  color: #198754;
+}
+.tracker-step.current .tracker-label {
+  color: var(--ou-ink);
+  font-weight: 600;
+}
+.tracker-note {
+  min-height: 1.4rem;
+  margin: 0.75rem 0 0;
+  color: var(--ou-muted);
+  text-align: center;
+  font-size: 0.9rem;
+}
+.tracker-live-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.35rem;
+  border-radius: 50%;
+  background: #198754;
+  animation: tracker-live 1.4s ease-in-out infinite;
+}
+@keyframes tracker-live {
+  50% { opacity: 0.25; }
+}
+.tracker-cancelled {
+  margin: 0;
+  text-align: center;
+  color: #dc3545;
+  font-weight: 600;
+}
