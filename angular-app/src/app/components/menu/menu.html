@@ -1,12 +1,14 @@
 <!-- Header Navigation -->
 <app-header></app-header>
 
-<div class="container">
+<div class="container menu-page">
+  <app-order-steps [step]="3"></app-order-steps>
+
   <!-- Loading State -->
   @if (loading()) {
     <div class="text-center">
       <div class="spinner-border text-primary" role="status">
-        <span class="sr-only">Loading...</span>
+        <span class="visually-hidden">Loading...</span>
       </div>
       <p class="mt-3">Loading restaurant menu...</p>
     </div>
@@ -19,7 +21,7 @@
       <p>{{ error() }}</p>
       <hr />
       <button class="btn btn-primary" (click)="goBack()">
-        <i class="bi bi-arrow-left"></i> Back to Restaurants
+        <i class="fas fa-arrow-left"></i> Back to Restaurants
       </button>
     </div>
   }
@@ -50,7 +52,7 @@
                   </p>
                   <div class="row mb-3">
                     <div class="col-auto">
-                      <small class="text-warning"> ★ ★ ★ ★ ★ </small>
+                      <span class="menu-stars" aria-hidden="true">{{ getFilledStars(restaurant()?.rating || 0) }}<span class="menu-stars-empty">{{ getEmptyStars(restaurant()?.rating || 0) }}</span></span>
                       <span class="ms-2">{{ restaurant()?.rating }}/5</span>
                     </div>
                     <div class="col-auto">
@@ -88,20 +90,22 @@
           </div>
         </div>
       </div>
-      <!-- Cart Summary (if items in cart) -->
+      <!-- Floating cart bar: bumps each time an item is added -->
       @if (cartService.totalItems() > 0) {
-        <div class="alert alert-info">
-          <div class="row align-items-center">
-            <div class="col">
-              <strong>{{ cartService.totalItems() }}</strong> items in cart -
-              <strong>${{ (cartService.totalPrice() || 0).toFixed(2) }}</strong>
-            </div>
-            <div class="col-auto">
-              <button class="btn btn-success" (click)="proceedToCheckout()">
-                <i class="bi bi-cart-check"></i> Checkout
-              </button>
-            </div>
-          </div>
+        <div
+          class="cart-bar"
+          [class.cart-bar-bump]="addingToCart() !== null"
+          role="status"
+        >
+          <span class="cart-bar-count">{{ cartService.totalItems() }}</span>
+          <span class="cart-bar-text">
+            {{ cartService.totalItems() === 1 ? 'item' : 'items' }} in your
+            cart ·
+            <strong>${{ (cartService.totalPrice() || 0).toFixed(2) }}</strong>
+          </span>
+          <button class="btn btn-light btn-sm" (click)="proceedToCheckout()">
+            Checkout <i class="fas fa-arrow-right ms-1"></i>
+          </button>
         </div>
       }
       @if (cartRestaurantConflict()) {
@@ -185,9 +189,9 @@
                               "
                             >
                               <i
-                                class="bi bi-cart-plus"
-                                [class.bi-cart-plus]="!isRecentlyAdded(item.id)"
-                                [class.bi-cart-check]="isRecentlyAdded(item.id)"
+                                class="fas"
+                                [class.fa-cart-plus]="!isRecentlyAdded(item.id)"
+                                [class.fa-check]="isRecentlyAdded(item.id)"
                               ></i>
                               @if (isAddingToCart(item.id)) {
                                 <span>Adding...</span>
@@ -214,14 +218,14 @@
                           <div class="cart-feedback-overlay">
                             <div class="feedback-animation">
                               @if (isAddingToCart(item.id)) {
-                                <i class="bi bi-cart-plus-fill"></i>
+                                <i class="fas fa-cart-plus"></i>
                               }
                               @if (
                                 isRecentlyAdded(item.id) &&
                                 !isAddingToCart(item.id)
                               ) {
                                 <i
-                                  class="bi bi-check-circle-fill text-success"
+                                  class="fas fa-circle-check text-success"
                                 ></i>
                               }
                             </div>
@@ -246,7 +250,7 @@
             </p>
             <hr />
             <button class="btn btn-primary" (click)="goBack()">
-              <i class="bi bi-arrow-left"></i> Back to Restaurants
+              <i class="fas fa-arrow-left"></i> Back to Restaurants
             </button>
           </div>
         </div>
@@ -256,11 +260,11 @@
         <div class="col-md-12">
           <div class="d-flex justify-content-between">
             <button class="btn btn-secondary" (click)="goBack()">
-              <i class="bi bi-arrow-left"></i> Back to Restaurants
+              <i class="fas fa-arrow-left"></i> Back to Restaurants
             </button>
             @if (cartService.totalItems() > 0) {
               <button class="btn btn-success" (click)="proceedToCheckout()">
-                <i class="bi bi-cart-check"></i>
+                <i class="fas fa-cart-shopping"></i>
                 Checkout ({{ cartService.totalItems() }} items - ${{
                   (cartService.totalPrice() || 0).toFixed(2)
                 }})

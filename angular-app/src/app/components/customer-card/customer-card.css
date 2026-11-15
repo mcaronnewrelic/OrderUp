@@ -15,7 +15,7 @@
   background-color: #f8f9fa;
   padding: 0.5rem;
   border-radius: 0.25rem;
-  border-left: 3px solid #007bff;
+  border-left: 3px solid var(--ou-primary);
   font-family: 'Courier New', monospace;
   font-size: 0.9rem;
   white-space: pre-wrap;

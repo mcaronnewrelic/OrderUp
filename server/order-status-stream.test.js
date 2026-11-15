@@ -65,8 +65,9 @@ test("subscribe answers with a snapshot, publish pushes advances to subscribers 
   });
 });
 
-test("a connection is one background transaction plus one OrderStreamSample at close", async (t) => {
-  const calls = { transactions: [], events: [] };
+/** A stand-in for the New Relic agent that records what the stream reports. */
+function createFakeNewrelic() {
+  const calls = { transactions: [], events: [], metrics: [] };
   const fakeNewrelic = {
     startBackgroundTransaction(name, callback) {
       const record = { name, ended: false, attributes: null };
@@ -86,7 +87,21 @@ test("a connection is one background transaction plus one OrderStreamSample at c
     recordCustomEvent(type, attributes) {
       calls.events.push({ type, attributes });
     },
+    recordMetric(name, value) {
+      calls.metrics.push({ name, value });
+    },
   };
+  return { calls, fakeNewrelic };
+}
+
+/** Let a released transaction callback settle. */
+async function settle() {
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
+test("a connection is one background transaction plus one OrderStreamSample at close", async (t) => {
+  const { calls, fakeNewrelic } = createFakeNewrelic();
   // The fake's transaction callback completes only when the stream
   // releases it at close; capture completion via the record itself.
   const stream = new OrderStatusStream(null, async () => "preparing", fakeNewrelic);
@@ -104,7 +119,7 @@ test("a connection is one background transaction plus one OrderStreamSample at c
     socket.once("open", resolve);
     socket.once("error", reject);
   });
-  socket.send(JSON.stringify({ type: "subscribe", orderId: "42" }));
+  socket.send(JSON.stringify({ type: "subscribe", orderId: "42", demoCode: "OU-TEST" }));
   await nextMessage(socket); // snapshot
   const advanced = nextMessage(socket);
   stream.publish("42", "delivered");
@@ -112,27 +127,121 @@ test("a connection is one background transaction plus one OrderStreamSample at c
 
   socket.close(1000);
   await new Promise((resolve) => socket.once("close", resolve));
-  // Let the released transaction callback settle.
-  await new Promise((resolve) => setImmediate(resolve));
-  await new Promise((resolve) => setImmediate(resolve));
+  await settle();
 
   assert.equal(calls.transactions.length, 1);
   assert.equal(calls.transactions[0].name, "OrderStatusStream/connection");
   assert.equal(calls.transactions[0].ended, true);
-  assert.deepEqual(calls.transactions[0].attributes, {
-    messagesReceived: 1,
-    messagesSent: 2,
-    pushesSent: 1,
-    orderId: "42",
+
+  const samples = calls.events.filter((event) => event.type === "OrderStreamSample");
+  assert.equal(samples.length, 1);
+  const sample = samples[0].attributes;
+  // The transaction and the custom event tell the same story.
+  assert.deepEqual(calls.transactions[0].attributes, sample);
+
+  // Counts
+  assert.equal(sample.messagesReceived, 1);
+  assert.equal(sample.messagesSent, 2);
+  assert.equal(sample.pushesSent, 1);
+  // Who and what
+  assert.equal(sample.orderId, "42");
+  assert.equal(sample.demoCode, "OU-TEST");
+  // What the client saw, and whether it saw the order through
+  assert.equal(sample.firstStatus, "preparing");
+  assert.equal(sample.lastStatus, "delivered");
+  assert.equal(sample.reachedTerminal, true);
+  assert.equal(sample.outcome, "saw_final_status");
+  // How it ended
+  assert.equal(sample.closeCode, 1000);
+  assert.equal(sample.closeCategory, "normal");
+  assert.equal(sample.snapshotFailed, false);
+  assert.equal(sample.errors, 0);
+  // Where the time went
+  for (const key of [
+    "connectedDurationMs",
+    "subscribeDelayMs",
+    "snapshotLookupMs",
+    "msToFirstPush",
+    "idleBeforeCloseMs",
+  ]) {
+    assert.equal(typeof sample[key], "number", key);
+  }
+
+  // One OrderStreamPush per status frame: the snapshot, then the push.
+  const pushes = calls.events.filter((event) => event.type === "OrderStreamPush");
+  assert.deepEqual(
+    pushes.map((event) => [event.attributes.kind, event.attributes.status, event.attributes.demoCode]),
+    [
+      ["snapshot", "preparing", "OU-TEST"],
+      ["push", "delivered", "OU-TEST"],
+    ],
+  );
+
+  // The concurrency gauge moved up on connect and back down on close.
+  assert.deepEqual(
+    calls.metrics.map((metric) => [metric.name, metric.value]),
+    [
+      ["Custom/OrderStream/OpenConnections", 1],
+      ["Custom/OrderStream/OpenConnections", 0],
+    ],
+  );
+});
+
+test("a connection that leaves early or never subscribes is labelled as such", async (t) => {
+  const { calls, fakeNewrelic } = createFakeNewrelic();
+  const stream = new OrderStatusStream(
+    null,
+    async () => { throw new Error("database is down"); },
+    fakeNewrelic,
+  );
+  const server = http.createServer();
+  stream.attach(server);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => {
+    stream.close();
+    server.close();
   });
-  assert.equal(calls.events.length, 1);
-  assert.equal(calls.events[0].type, "OrderStreamSample");
-  assert.equal(calls.events[0].attributes.orderId, "42");
-  assert.equal(calls.events[0].attributes.messagesReceived, 1);
-  assert.equal(calls.events[0].attributes.messagesSent, 2);
-  assert.equal(calls.events[0].attributes.pushesSent, 1);
-  assert.equal(calls.events[0].attributes.closeCode, 1000);
-  assert.equal(typeof calls.events[0].attributes.connectedDurationMs, "number");
+  const url = `ws://127.0.0.1:${server.address().port}/api/orders/stream`;
+
+  // 1. Subscribes, the snapshot lookup fails, then the visitor navigates away.
+  const early = new WebSocket(url);
+  await new Promise((resolve, reject) => {
+    early.once("open", resolve);
+    early.once("error", reject);
+  });
+  // An invalid demoCode is ignored rather than recorded.
+  early.send(JSON.stringify({ type: "subscribe", orderId: "7", demoCode: "<script>" }));
+  assert.equal((await nextMessage(early)).status, "pending"); // the fallback answer
+  early.close(1001);
+  await new Promise((resolve) => early.once("close", resolve));
+  await settle();
+
+  // 2. Connects and closes without ever subscribing.
+  const silent = new WebSocket(url);
+  await new Promise((resolve, reject) => {
+    silent.once("open", resolve);
+    silent.once("error", reject);
+  });
+  silent.close(1000);
+  await new Promise((resolve) => silent.once("close", resolve));
+  await settle();
+
+  const [left, never] = calls.events
+    .filter((event) => event.type === "OrderStreamSample")
+    .map((event) => event.attributes);
+
+  assert.equal(left.outcome, "left_before_final_status");
+  assert.equal(left.closeCategory, "client_navigated_away");
+  assert.equal(left.snapshotFailed, true);
+  assert.equal(left.lastStatus, "pending");
+  assert.equal(left.reachedTerminal, false);
+  assert.equal("demoCode" in left, false);
+  assert.equal("msToFirstPush" in left, false);
+
+  assert.equal(never.outcome, "never_subscribed");
+  assert.equal(never.subscribed, false);
+  assert.equal(never.messagesSent, 0);
+  assert.equal("orderId" in never, false);
 });
 
 test("upgrades to other paths are refused", async (t) => {

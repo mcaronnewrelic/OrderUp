@@ -9,6 +9,7 @@ import { HttpClient } from '@angular/common/http';
 import { HeaderComponent } from '../header/header';
 import { NrCalloutComponent } from '../nr-callout/nr-callout';
 import { NrCheckComponent } from '../nr-check/nr-check';
+import { OrderStepsComponent } from '../order-steps/order-steps';
 import { EventTypesService } from '../../services/event-types.service';
 import { MissionProgressService } from '../../services/mission-progress.service';
 
@@ -20,6 +21,7 @@ import { MissionProgressService } from '../../services/mission-progress.service'
     HeaderComponent,
     NrCalloutComponent,
     NrCheckComponent,
+    OrderStepsComponent,
   ],
   templateUrl: './customer.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -28,6 +30,16 @@ import { MissionProgressService } from '../../services/mission-progress.service'
 export class CustomerComponent {
   readonly userNrql =
     "SELECT count(*) FROM PageView, AjaxRequest, PageAction, JavaScriptError WHERE demoCode = '<code>' FACET enduser.id, eventType() SINCE 1 day ago";
+
+  /** Decorative thumbnails for the hero, shown at their native size. */
+  readonly heroImages = [
+    'luigis.jpg',
+    'burgerama.jpg',
+    'sakura.jpg',
+    'curryup.jpg',
+    'cancun.jpg',
+    'tofuparadise.jpg',
+  ];
 
   customerForm = signal<Customer>({
     name: '',

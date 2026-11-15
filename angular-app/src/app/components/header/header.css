@@ -28,7 +28,7 @@
 }
 
 .navbar-brand i {
-  color: #ffc107;
+  color: var(--ou-accent);
 }
 
 .nav-link {
@@ -37,11 +37,11 @@
 }
 
 .nav-link:hover {
-  color: #ffc107 !important;
+  color: var(--ou-primary) !important;
 }
 
 .nav-link.active {
-  color: #ffc107 !important;
+  color: var(--ou-primary) !important;
   font-weight: 600;
 }
 
@@ -82,7 +82,7 @@
   .navbar-collapse {
     margin-top: 1rem;
     padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    border-top: 1px solid var(--ou-line);
   }
   
   .navbar-nav .nav-link {
@@ -116,7 +116,7 @@
 }
 
 .nr-toggle-on {
-  color: #1ce783 !important;
+  color: var(--ou-nr-green-dark) !important;
   font-weight: 600;
 }
 
@@ -148,7 +148,8 @@
 .demo-code {
   font-family: ui-monospace, SFMono-Regular, monospace;
   font-size: 0.85rem;
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--ou-nr-ink);
+  color: var(--ou-nr-green);
   padding: 0.15rem 0.55rem;
   border-radius: 999px;
 }
@@ -167,7 +168,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  background: #1e40af;
+  background: var(--ou-ink);
   color: #f9fafb;
   padding: 0.45rem 1rem;
   font-size: 0.9rem;
@@ -227,4 +228,62 @@
 }
 .order-pill-close:hover {
   opacity: 1;
+}
+
+/* Brand refresh: light navbar so the logo and the dark telemetry strips
+   around it read as separate layers. */
+.ou-navbar {
+  background: #fff;
+  border-bottom: 1px solid var(--ou-line);
+  box-shadow: 0 2px 12px rgba(36, 22, 15, 0.05);
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}
+
+.ou-navbar .navbar-brand {
+  color: var(--ou-ink);
+  font-family: var(--ou-font-display);
+  letter-spacing: -0.01em;
+}
+
+.ou-navbar .nav-link {
+  color: var(--ou-muted);
+  font-weight: 500;
+}
+
+.ou-navbar .nav-link.disabled {
+  opacity: 1;
+}
+
+/* Cart icon bumps each time an item lands in the cart. */
+.cart-link.cart-bump {
+  animation: cart-bump 0.45s ease-out;
+}
+
+@keyframes cart-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.35) rotate(-8deg); }
+  70% { transform: scale(0.92) rotate(4deg); }
+  100% { transform: scale(1); }
+}
+
+/* Quiet heads-up when this browser cannot reach New Relic. */
+.agent-note {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  padding: 0.35rem 1rem;
+  background: var(--ou-nr-ink);
+  color: #9fb8b8;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.agent-note i {
+  color: #ffb454;
+}
+
+.agent-note code {
+  color: #e6f1f1;
+  font-size: inherit;
 }

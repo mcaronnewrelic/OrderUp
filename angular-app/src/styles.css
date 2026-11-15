@@ -1,26 +1,124 @@
 /* Import Bootstrap CSS */
 @import 'bootstrap/dist/css/bootstrap.min.css';
 
-/* You can add global styles to this file, and also import other style files */
+/* ------------------------------------------------------------------
+   OrderUp brand theme.
+   Warm "kitchen" palette for the storefront; New Relic green on dark
+   is reserved for the telemetry / behind-the-scenes surfaces so the
+   two layers of the demo are visually distinct.
+   ------------------------------------------------------------------ */
+:root {
+  --ou-primary: #c2410c;
+  --ou-primary-dark: #9a3412;
+  --ou-primary-soft: #fff1e6;
+  --ou-accent: #f59e0b;
+  --ou-ink: #24160f;
+  --ou-muted: #6f5d52;
+  --ou-cream: #fffaf3;
+  --ou-line: #efe3d5;
+  --ou-nr-green: #1ce783;
+  --ou-nr-green-dark: #0a7d4f;
+  --ou-nr-ink: #0d1b1b;
+  --ou-font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --ou-font-body: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ou-shadow: 0 1px 2px rgba(36, 22, 15, 0.05), 0 8px 24px rgba(36, 22, 15, 0.07);
 
-/* Custom styles for OrderUp app */
-.restaurant-card {
-  cursor: pointer;
-  transition: transform 0.2s;
+  --bs-primary: var(--ou-primary);
+  --bs-primary-rgb: 194, 65, 12;
+  --bs-link-color: var(--ou-primary);
+  --bs-link-color-rgb: 194, 65, 12;
+  --bs-link-hover-color: var(--ou-primary-dark);
+  --bs-link-hover-color-rgb: 154, 52, 18;
+  --bs-body-font-family: var(--ou-font-body);
+  --bs-body-bg: var(--ou-cream);
+  --bs-body-color: var(--ou-ink);
+  --bs-secondary-color: var(--ou-muted);
+  --bs-border-color: var(--ou-line);
 }
 
-.restaurant-card:hover {
-  transform: translateY(-2px);
+h1, h2, h3, .h1, .h2, .h3, .ou-display {
+  font-family: var(--ou-font-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
+
+.text-muted {
+  color: var(--ou-muted) !important;
+}
+
+/* Buttons */
+.btn {
+  --bs-btn-border-radius: 999px;
+  --bs-btn-font-weight: 600;
+}
+.btn-sm { --bs-btn-border-radius: 999px; }
+.btn-lg { --bs-btn-border-radius: 999px; }
+
+.btn-primary {
+  --bs-btn-bg: var(--ou-primary);
+  --bs-btn-border-color: var(--ou-primary);
+  --bs-btn-hover-bg: var(--ou-primary-dark);
+  --bs-btn-hover-border-color: var(--ou-primary-dark);
+  --bs-btn-active-bg: var(--ou-primary-dark);
+  --bs-btn-active-border-color: var(--ou-primary-dark);
+  --bs-btn-disabled-bg: var(--ou-primary);
+  --bs-btn-disabled-border-color: var(--ou-primary);
+  --bs-btn-focus-shadow-rgb: 194, 65, 12;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--ou-primary);
+  --bs-btn-border-color: var(--ou-primary);
+  --bs-btn-hover-bg: var(--ou-primary);
+  --bs-btn-hover-border-color: var(--ou-primary);
+  --bs-btn-active-bg: var(--ou-primary);
+  --bs-btn-active-border-color: var(--ou-primary);
+  --bs-btn-disabled-color: var(--ou-primary);
+  --bs-btn-disabled-border-color: var(--ou-primary);
+  --bs-btn-focus-shadow-rgb: 194, 65, 12;
+}
+
+/* Forms */
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+  border-color: #e9a27f;
+  box-shadow: 0 0 0 0.2rem rgba(194, 65, 12, 0.18);
+}
+.form-check-input:checked {
+  background-color: var(--ou-primary);
+  border-color: var(--ou-primary);
+}
+
+/* Surfaces */
+.card {
+  --bs-card-border-radius: 1rem;
+  --bs-card-inner-border-radius: calc(1rem - 1px);
+  --bs-card-border-color: var(--ou-line);
+  --bs-card-cap-bg: #fff;
+  --bs-card-bg: #fff;
+  box-shadow: var(--ou-shadow);
+}
+.progress { --bs-progress-bar-bg: var(--ou-primary); }
+.dropdown-menu {
+  --bs-dropdown-link-active-bg: var(--ou-primary);
+  --bs-dropdown-border-color: var(--ou-line);
+  border-radius: 0.75rem;
+  box-shadow: var(--ou-shadow);
+}
+.breadcrumb { --bs-breadcrumb-divider-color: var(--ou-muted); }
 
 .delivery-section {
-  background-color: #f8f9fa;
+  background-color: var(--ou-primary-soft);
   padding: 1rem;
-  border-radius: 0.375rem;
+  border-radius: 0.75rem;
   margin-bottom: 1rem;
 }
 
-.navbar-brand {
-  font-weight: bold;
-  font-size: 1.5rem;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

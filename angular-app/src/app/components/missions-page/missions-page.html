@@ -41,9 +41,9 @@
   <ol class="fm-steps list-group list-group-numbered">
     @for (mission of missions; track mission.id) {
       <li
-        class="list-group-item d-flex align-items-center justify-content-between"
+        class="list-group-item d-flex align-items-center"
       >
-        <div class="ms-2">
+        <div class="ms-3 me-3 flex-grow-1">
           <strong>{{ mission.title }}</strong>
           <div class="text-muted small">{{ blurbs[mission.id] }}</div>
         </div>

@@ -1,0 +1,101 @@
+.hero {
+  padding: 3.5rem 0 2.5rem;
+  background:
+    radial-gradient(60rem 28rem at 8% -10%, #ffe2c7 0%, rgba(255, 226, 199, 0) 60%),
+    radial-gradient(40rem 24rem at 100% 0%, #ffedd5 0%, rgba(255, 237, 213, 0) 65%),
+    var(--ou-cream);
+  border-bottom: 1px solid var(--ou-line);
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  background: var(--ou-nr-ink);
+  color: var(--ou-nr-green);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hero-eyebrow-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--ou-nr-green);
+  animation: hero-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes hero-pulse {
+  50% { opacity: 0.25; }
+}
+
+.hero-title {
+  margin: 1.1rem 0 1rem;
+  font-size: clamp(2.3rem, 5vw, 3.6rem);
+  line-height: 1.05;
+  color: var(--ou-ink);
+}
+
+.hero-title em {
+  display: block;
+  font-style: italic;
+  color: var(--ou-primary);
+}
+
+.hero-lead {
+  max-width: 32rem;
+  font-size: 1.1rem;
+  color: var(--ou-muted);
+}
+
+.hero-mosaic {
+  display: flex;
+  margin: 1.75rem 0 1.5rem;
+  padding-left: 0.5rem;
+}
+
+.hero-mosaic img {
+  width: 88px;
+  height: 88px;
+  margin-left: -0.5rem;
+  border: 3px solid #fff;
+  border-radius: 1.1rem;
+  object-fit: cover;
+  box-shadow: var(--ou-shadow);
+  transition: transform 0.25s ease;
+}
+
+.hero-mosaic img:nth-child(odd) { transform: rotate(-4deg); }
+.hero-mosaic img:nth-child(even) { transform: rotate(3deg) translateY(6px); }
+.hero-mosaic img:hover { transform: rotate(0) scale(1.08); z-index: 1; }
+
+.hero-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ou-ink);
+}
+
+.hero-points i {
+  margin-right: 0.35rem;
+  color: var(--ou-nr-green-dark);
+}
+
+.hero-card {
+  border: none;
+  box-shadow: 0 2px 4px rgba(36, 22, 15, 0.05), 0 20px 48px rgba(36, 22, 15, 0.12);
+}
+
+@media (max-width: 575.98px) {
+  .hero { padding-top: 2rem; }
+  .hero-mosaic img { width: 64px; height: 64px; }
+}

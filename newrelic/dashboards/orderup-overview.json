@@ -21,7 +21,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Orders', sum(orderTotal) AS 'Revenue' FROM Transaction WHERE name = 'WebTransaction/Expressjs/POST//api/order' AND orderId IS NOT NULL AND demoCode NOT LIKE 'SIM-%' AND appName = 'OrderUp' AND demoCode = {{demoCode}} SINCE 1 week ago"
               }
             ]
@@ -41,7 +43,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Orders' FROM Transaction WHERE name = 'WebTransaction/Expressjs/POST//api/order' AND orderId IS NOT NULL AND demoCode NOT LIKE 'SIM-%' AND appName = 'OrderUp' AND demoCode = {{demoCode}} TIMESERIES AUTO SINCE 1 week ago"
               }
             ]
@@ -61,7 +65,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Orders' FROM Transaction WHERE name = 'WebTransaction/Expressjs/POST//api/order' AND orderId IS NOT NULL AND demoCode NOT LIKE 'SIM-%' AND appName = 'OrderUp' AND demoCode = {{demoCode}} FACET restaurant SINCE 1 week ago"
               }
             ]
@@ -81,7 +87,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT sum(orderTotal) AS 'Revenue' FROM Transaction WHERE name = 'WebTransaction/Expressjs/POST//api/order' AND orderId IS NOT NULL AND demoCode NOT LIKE 'SIM-%' AND appName = 'OrderUp' AND demoCode = {{demoCode}} FACET restaurant SINCE 1 week ago"
               }
             ]
@@ -101,7 +109,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT average(duration) AS 'Average', percentile(duration, 95) AS '95th percentile' FROM Transaction WHERE appName = 'OrderUp' AND name = 'WebTransaction/Expressjs/POST//api/order' TIMESERIES AUTO SINCE 1 week ago"
               }
             ]
@@ -121,7 +131,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(newrelic.timeslice.value) AS 'Orders', sum(newrelic.timeslice.value) AS 'Revenue' FROM Metric WHERE appName = 'OrderUp' AND (metricTimesliceName = 'Custom/total' OR metricTimesliceName LIKE 'Custom/%/total') FACET metricTimesliceName TIMESERIES AUTO SINCE 1 week ago"
               }
             ]
@@ -141,7 +153,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) FROM TransactionError WHERE appName = 'OrderUp' AND transactionName = 'WebTransaction/Expressjs/POST//api/order' FACET error.message SINCE 1 week ago"
               }
             ]
@@ -167,7 +181,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) FROM Transaction WHERE appName = 'OrderUp' AND name = 'WebTransaction/Expressjs/GET//api/restaurant/by-name/:name' FACET http.statusCode TIMESERIES AUTO SINCE 1 week ago"
               }
             ]
@@ -187,7 +203,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) FROM Transaction WHERE appName = 'OrderUp' AND name = 'WebTransaction/Expressjs/GET//api/restaurant/by-name/:name' FACET restaurantSlug, http.statusCode SINCE 1 week ago LIMIT 50"
               }
             ]
@@ -207,7 +225,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*), latest(timestamp) AS 'Last seen' FROM TransactionError WHERE appName = 'OrderUp' AND transactionName = 'WebTransaction/Expressjs/GET//api/restaurant/by-name/:name' FACET restaurantSlug, error.message SINCE 1 week ago"
               }
             ]
@@ -227,7 +247,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT average(duration) FROM Transaction WHERE appName = 'OrderUp' AND name = 'WebTransaction/Expressjs/GET//api/restaurant/by-name/:name' FACET restaurantSlug SINCE 1 week ago LIMIT 20"
               }
             ]
@@ -247,7 +269,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT average(duration) AS 'Average', percentile(duration, 95) AS '95th percentile' FROM Transaction WHERE appName = 'OrderUp' AND name = 'WebTransaction/Expressjs/GET//api/restaurant' TIMESERIES AUTO SINCE 1 week ago"
               }
             ]
@@ -267,7 +291,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) FROM TransactionError WHERE appName = 'OrderUp' AND transactionName NOT LIKE '%/simulate/%' FACET transactionName, error.message SINCE 1 week ago"
               }
             ]
@@ -293,7 +319,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT uniqueCount(session) AS 'Sessions', count(*) AS 'Page views' FROM PageView WHERE demoCode NOT LIKE 'SIM-%' AND appName = 'OrderUp' AND demoCode = {{demoCode}} SINCE 1 week ago"
               }
             ]
@@ -313,7 +341,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) FROM PageView WHERE demoCode NOT LIKE 'SIM-%' AND appName = 'OrderUp' AND demoCode = {{demoCode}} FACET pageUrl SINCE 1 week ago LIMIT 20"
               }
             ]
@@ -333,7 +363,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) FROM JavaScriptError WHERE demoCode NOT LIKE 'SIM-%' AND appName = 'OrderUp' AND demoCode = {{demoCode}} FACET errorMessage, page SINCE 1 week ago"
               }
             ]
@@ -353,7 +385,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) FROM AjaxRequest WHERE demoCode NOT LIKE 'SIM-%' AND appName = 'OrderUp' AND httpResponseCode >= 500 AND demoCode = {{demoCode}} FACET requestUrl SINCE 1 week ago"
               }
             ]
@@ -373,7 +407,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) FROM PageAction WHERE demoCode NOT LIKE 'SIM-%' AND appName = 'OrderUp' AND demoCode = {{demoCode}} FACET actionName SINCE 1 week ago"
               }
             ]
@@ -393,7 +429,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT average(durationMs), max(durationMs) FROM PageAction WHERE demoCode NOT LIKE 'SIM-%' AND appName = 'OrderUp' AND actionName = 'error_simulation_triggered' AND demoCode = {{demoCode}} TIMESERIES AUTO SINCE 1 week ago"
               }
             ]
@@ -413,7 +451,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) FROM PageView, AjaxRequest, PageAction, JavaScriptError WHERE demoCode NOT LIKE 'SIM-%' AND appName = 'OrderUp' AND enduser.id IS NOT NULL AND demoCode = {{demoCode}} FACET enduser.id, eventType() SINCE 1 week ago"
               }
             ]
@@ -423,7 +463,7 @@
     },
     {
       "name": "Knowledge checks",
-      "description": "What the class answered in the mission checks (OrderupQuizAnswer), and \u2014 with your code picked at the top \u2014 your own journey.",
+      "description": "What the class answered in the mission checks (OrderupQuizAnswer), and — with your code picked at the top — your own journey.",
       "widgets": [
         {
           "title": "Answers",
@@ -439,7 +479,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Answers', uniqueCount(demoCode) AS 'Visitor codes' FROM OrderupQuizAnswer WHERE demoCode NOT LIKE 'SIM-%' SINCE 1 week ago"
               }
             ]
@@ -459,7 +501,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT percentage(count(*), WHERE demoCode NOT LIKE 'SIM-%' AND outcome = 'correct') AS 'Right on the first try' FROM OrderupQuizAnswer WHERE attempt = 1 SINCE 1 week ago"
               }
             ]
@@ -477,7 +521,7 @@
             "id": "viz.markdown"
           },
           "rawConfiguration": {
-            "text": "## Knowledge checks\nEvery answer to a mission check lands here as an `OrderupQuizAnswer` event \u2014 right or wrong, with its attempt number. **Students: pick your code in the variable bar at the top of this dashboard** to fill in the Your journey section below."
+            "text": "## Knowledge checks\nEvery answer to a mission check lands here as an `OrderupQuizAnswer` event — right or wrong, with its attempt number. **Students: pick your code in the variable bar at the top of this dashboard** to fill in the Your journey section below."
           }
         },
         {
@@ -494,7 +538,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) FROM OrderupQuizAnswer FACET outcome TIMESERIES AUTO WHERE demoCode NOT LIKE 'SIM-%' SINCE 1 week ago"
               }
             ]
@@ -514,7 +560,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT percentage(count(*), WHERE demoCode NOT LIKE 'SIM-%' AND outcome = 'correct') AS 'Right first try (%)' FROM OrderupQuizAnswer WHERE attempt = 1 FACET missionId SINCE 1 week ago"
               }
             ]
@@ -534,7 +582,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT percentage(count(*), WHERE demoCode NOT LIKE 'SIM-%' AND outcome = 'incorrect') AS 'Wrong first try (%)', count(*) AS 'First tries' FROM OrderupQuizAnswer WHERE attempt = 1 FACET missionId, questionId LIMIT 20 SINCE 1 week ago"
               }
             ]
@@ -554,7 +604,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Times picked' FROM OrderupQuizAnswer WHERE demoCode NOT LIKE 'SIM-%' AND outcome = 'incorrect' FACET missionId, questionId, answer LIMIT 20 SINCE 1 week ago"
               }
             ]
@@ -574,14 +626,16 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT average(attempt) AS 'Average tries', max(attempt) AS 'Most tries' FROM OrderupQuizAnswer WHERE demoCode NOT LIKE 'SIM-%' AND outcome = 'correct' FACET missionId, questionId LIMIT 20 SINCE 1 week ago"
               }
             ]
           }
         },
         {
-          "title": "Solved on attempt\u2026",
+          "title": "Solved on attempt…",
           "layout": {
             "column": 7,
             "row": 4,
@@ -594,7 +648,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Solved' FROM OrderupQuizAnswer WHERE demoCode NOT LIKE 'SIM-%' AND outcome = 'correct' FACET attempt SINCE 1 week ago"
               }
             ]
@@ -629,7 +685,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Your answers' FROM OrderupQuizAnswer WHERE demoCode = {{demoCode}} SINCE 1 week ago"
               }
             ]
@@ -649,7 +707,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT percentage(count(*), WHERE outcome = 'correct') AS 'Right on the first try' FROM OrderupQuizAnswer WHERE attempt = 1 AND demoCode = {{demoCode}} SINCE 1 week ago"
               }
             ]
@@ -669,7 +729,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Your orders' FROM Transaction WHERE appName = 'OrderUp' AND name = 'WebTransaction/Expressjs/POST//api/order' AND orderId IS NOT NULL AND demoCode NOT LIKE 'SIM-%' AND demoCode = {{demoCode}} SINCE 1 week ago"
               }
             ]
@@ -689,7 +751,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT timestamp, missionId, question, answer, outcome, attempt FROM OrderupQuizAnswer WHERE demoCode = {{demoCode}} LIMIT 50 SINCE 1 week ago"
               }
             ]
@@ -715,7 +779,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT uniqueCount(demoCode) AS 'Started (answered a check)' FROM OrderupQuizAnswer WHERE demoCode NOT LIKE 'SIM-%' AND demoCode = {{demoCode}} SINCE 1 week ago"
               }
             ]
@@ -735,7 +801,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT uniqueCount(demoCode) AS 'Placed an order' FROM Transaction WHERE appName = 'OrderUp' AND name = 'WebTransaction/Expressjs/POST//api/order' AND orderId IS NOT NULL AND demoCode NOT LIKE 'SIM-%' AND demoCode = {{demoCode}} SINCE 1 week ago"
               }
             ]
@@ -755,7 +823,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT uniqueCount(demoCode) AS 'Checked a mission' FROM OrderupQuizAnswer WHERE demoCode NOT LIKE 'SIM-%' AND outcome = 'correct' AND demoCode = {{demoCode}} SINCE 1 week ago"
               }
             ]
@@ -775,7 +845,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT uniqueCount(demoCode) AS 'Completed Mission 5' FROM OrderupQuizAnswer WHERE demoCode NOT LIKE 'SIM-%' AND outcome = 'correct' AND missionId = 'mission-5' AND demoCode = {{demoCode}} SINCE 1 week ago"
               }
             ]
@@ -795,7 +867,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT uniqueCount(demoCode) AS 'Visitors' FROM OrderupQuizAnswer WHERE demoCode NOT LIKE 'SIM-%' AND outcome = 'correct' AND demoCode = {{demoCode}} FACET missionId SINCE 1 week ago"
               }
             ]
@@ -815,7 +889,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) FROM OrderupQuizAnswer FACET missionId, outcome WHERE demoCode NOT LIKE 'SIM-%' AND demoCode = {{demoCode}} SINCE 1 week ago"
               }
             ]
@@ -835,7 +911,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Answers', percentage(count(*), WHERE demoCode NOT LIKE 'SIM-%' AND outcome = 'correct') AS 'Correct (%)', average(attempt) AS 'Avg attempts' FROM OrderupQuizAnswer WHERE demoCode = {{demoCode}} FACET missionId SINCE 1 week ago"
               }
             ]
@@ -861,7 +939,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT latest(unfinished) AS 'Unfinished orders' FROM OrderPipelineSample"
               }
             ]
@@ -881,7 +961,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT latest(oldestUnfinishedAgeSeconds) AS 'Oldest waiting (s)' FROM OrderPipelineSample"
               }
             ]
@@ -901,7 +983,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Failed polls' FROM Transaction WHERE name = 'OrderStatusWorker/poll' AND error IS true SINCE 1 hour ago"
               }
             ]
@@ -921,7 +1005,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT latest(pending) AS 'Pending', latest(preparing) AS 'Preparing', latest(outForDelivery) AS 'Out for delivery' FROM OrderPipelineSample TIMESERIES"
               }
             ]
@@ -941,7 +1027,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT sum(advanced) AS 'Advanced' FROM OrderPipelineSample TIMESERIES"
               }
             ]
@@ -965,7 +1053,7 @@
             "id": "viz.markdown"
           },
           "rawConfiguration": {
-            "text": "## Live order tracking\nOne tracker connection, three records. **Browser:** the browser agent emits one `WebSocket` event per connection, when it closes. **APM:** the socket upgrade bypasses Express, so no web transaction exists - the server wraps each connection in a background transaction (`OrderStatusStream/connection`) by hand. **Custom event:** at close the server also emits `OrderStreamSample` with the final counts. Compare `messagesSent` (server) with `messageCount` (browser): both should be 1 snapshot + 1 push per stage watched. This page is not filtered by demoCode - socket events don't carry one - so it counts every connection, simulated ones included."
+            "text": "## Live order tracking\nOne tracker connection, three records. **Browser:** the browser agent emits one `WebSocket` event per connection, when it closes. **APM:** the socket upgrade bypasses Express, so no web transaction exists - the server wraps each connection in a background transaction (`OrderStatusStream/connection`) by hand. **Custom event:** at close the server also emits `OrderStreamSample` with the final counts. Compare `messagesSent` (server) with `messageCount` (browser): both should be 1 snapshot + 1 push per stage watched. This page is not filtered by demoCode, so it counts every connection, simulated ones included - but the server's records now carry `demoCode`, so any of its queries can be narrowed to one visitor."
           }
         },
         {
@@ -982,7 +1070,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Browser connections' FROM WebSocket WHERE appName = 'OrderUp' AND requestedUrl LIKE '%/api/orders/stream%' SINCE 1 day ago"
               }
             ]
@@ -1002,7 +1092,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Stream transactions' FROM Transaction WHERE name LIKE '%OrderStatusStream/connection%' SINCE 1 day ago"
               }
             ]
@@ -1022,7 +1114,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Stream samples' FROM OrderStreamSample SINCE 1 day ago"
               }
             ]
@@ -1042,7 +1136,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT sum(advanced) AS 'Orders advanced' FROM OrderPipelineSample SINCE 1 day ago"
               }
             ]
@@ -1062,7 +1158,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Browser connections' FROM WebSocket WHERE appName = 'OrderUp' AND requestedUrl LIKE '%/api/orders/stream%' SINCE 1 day ago TIMESERIES"
               }
             ]
@@ -1082,7 +1180,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Stream samples' FROM OrderStreamSample SINCE 1 day ago TIMESERIES"
               }
             ]
@@ -1102,7 +1202,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT average(messageCount) AS 'Avg messages (browser)' FROM WebSocket WHERE appName = 'OrderUp' AND requestedUrl LIKE '%/api/orders/stream%' SINCE 1 day ago"
               }
             ]
@@ -1122,7 +1224,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT average(messagesSent) AS 'Avg messages (server)' FROM OrderStreamSample SINCE 1 day ago"
               }
             ]
@@ -1142,7 +1246,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT requestedUrl, messageCount, sendCount, connectedDuration, closeCode, closeReason FROM WebSocket WHERE appName = 'OrderUp' AND requestedUrl LIKE '%/api/orders/stream%' SINCE 1 day ago LIMIT 20"
               }
             ]
@@ -1162,7 +1268,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT orderId, messagesReceived, messagesSent, pushesSent, connectedDurationMs, closeCode FROM OrderStreamSample SINCE 1 day ago LIMIT 20"
               }
             ]
@@ -1182,7 +1290,9 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Connections' FROM WebSocket WHERE appName = 'OrderUp' AND requestedUrl LIKE '%/api/orders/stream%' FACET closeCode SINCE 1 day ago"
               }
             ]
@@ -1202,8 +1312,201 @@
           "rawConfiguration": {
             "nrqlQueries": [
               {
-                "accountIds": [1352811],
+                "accountIds": [
+                  1352811
+                ],
                 "query": "SELECT count(*) AS 'Connections' FROM OrderStreamSample FACET closeCode SINCE 1 day ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": null,
+          "layout": {
+            "column": 1,
+            "row": 20,
+            "width": 12,
+            "height": 2
+          },
+          "visualization": {
+            "id": "viz.markdown"
+          },
+          "rawConfiguration": {
+            "text": "## Diagnosing a tracker\nThe widgets above count connections; these explain them. Each server record now carries the visitor's `demoCode`, what the client saw (`firstStatus` to `lastStatus`), an `outcome` (did the visitor see the order through?), a `closeCategory` (the close code in words) and where the time went. `OrderStreamPush` is one event per status frame sent. The browser reports its side as `PageAction`s: `order_tracker_status` (each status painted, with `transport` = websocket or rest) and `order_tracker_connection` (drops, retries, the fall back to polling). A stuck tracker is a snapshot with no pushes after it; a broken connection is a `closed` or `polling_fallback` event while the order was still moving."
+          }
+        },
+        {
+          "title": "Did visitors see their order through?",
+          "layout": {
+            "column": 1,
+            "row": 22,
+            "width": 4,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  1352811
+                ],
+                "query": "SELECT count(*) AS 'Connections' FROM OrderStreamSample FACET outcome SINCE 1 day ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "How connections end, in words",
+          "layout": {
+            "column": 5,
+            "row": 22,
+            "width": 4,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  1352811
+                ],
+                "query": "SELECT count(*) AS 'Connections' FROM OrderStreamSample FACET closeCategory SINCE 1 day ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Open connections (server gauge)",
+          "layout": {
+            "column": 9,
+            "row": 22,
+            "width": 4,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.line"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  1352811
+                ],
+                "query": "SELECT max(newrelic.timeslice.value) AS 'Open connections' FROM Metric WHERE appName = 'OrderUp' AND metricTimesliceName = 'Custom/OrderStream/OpenConnections' SINCE 1 day ago TIMESERIES"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Where the time goes (ms)",
+          "layout": {
+            "column": 1,
+            "row": 25,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.billboard"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  1352811
+                ],
+                "query": "SELECT average(subscribeDelayMs) AS 'Connect to subscribe', average(snapshotLookupMs) AS 'Snapshot lookup', average(msToFirstPush) AS 'Subscribe to first push', average(idleBeforeCloseMs) AS 'Idle before close' FROM OrderStreamSample SINCE 1 day ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "How each status reached the browser",
+          "layout": {
+            "column": 7,
+            "row": 25,
+            "width": 6,
+            "height": 3
+          },
+          "visualization": {
+            "id": "viz.bar"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  1352811
+                ],
+                "query": "SELECT count(*) AS 'Statuses painted' FROM PageAction WHERE appName = 'OrderUp' AND actionName = 'order_tracker_status' FACET transport, status SINCE 1 day ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Connections that need a look - server",
+          "layout": {
+            "column": 1,
+            "row": 28,
+            "width": 12,
+            "height": 4
+          },
+          "visualization": {
+            "id": "viz.table"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  1352811
+                ],
+                "query": "SELECT demoCode, orderId, outcome, closeCategory, firstStatus, lastStatus, pushesSent, snapshotFailed, errors, connectedDurationMs FROM OrderStreamSample WHERE outcome != 'saw_final_status' OR snapshotFailed IS true OR errors > 0 OR closeCategory IN ('abnormal_drop', 'heartbeat_timeout') SINCE 1 day ago LIMIT 50"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Status frames sent - one row per message",
+          "layout": {
+            "column": 1,
+            "row": 32,
+            "width": 6,
+            "height": 4
+          },
+          "visualization": {
+            "id": "viz.table"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  1352811
+                ],
+                "query": "SELECT demoCode, orderId, kind, status, subscribers, msSinceSubscribe FROM OrderStreamPush SINCE 1 day ago LIMIT 50"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Connection trouble seen by the browser",
+          "layout": {
+            "column": 7,
+            "row": 32,
+            "width": 6,
+            "height": 4
+          },
+          "visualization": {
+            "id": "viz.table"
+          },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [
+                  1352811
+                ],
+                "query": "SELECT demoCode, orderId, event, closeCode, reason, attempt, lastStatus FROM PageAction WHERE appName = 'OrderUp' AND actionName = 'order_tracker_connection' AND event != 'open' SINCE 1 day ago LIMIT 50"
               }
             ]
           }
@@ -1217,7 +1520,9 @@
       "items": null,
       "defaultValues": [],
       "nrqlQuery": {
-        "accountIds": [1352811],
+        "accountIds": [
+          1352811
+        ],
         "query": "SELECT uniques(demoCode) FROM OrderupQuizAnswer, Transaction, ItemsOrdered, PageView WHERE demoCode NOT LIKE 'SIM-%' SINCE 1 week ago"
       },
       "options": {

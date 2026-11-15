@@ -50,10 +50,22 @@
               <p class="order-date">{{ formatDate(order.createdAt) }}</p>
             </div>
             <div class="order-status">
-              <span class="status-badge" [class]="getStatusClass(order.status)">
-                {{ getStatusDisplayName(order.status) }}
+              <span class="status-badge" [class]="getStatusClass(statusOf(order))">
+                {{ getStatusDisplayName(statusOf(order)) }}
               </span>
             </div>
+          </div>
+          <div class="order-tracker-row">
+            <app-order-tracker
+              [status]="statusOf(order)"
+              [live]="isTracked(order) && orderStatus.live()"
+              [tracking]="isTracked(order)"
+            ></app-order-tracker>
+            @if (!isTracked(order) && !isFinished(order)) {
+              <button type="button" class="btn btn-outline-primary btn-sm track-live-btn" (click)="trackLive(order)">
+                <i class="fas fa-tower-broadcast me-1" aria-hidden="true"></i> Track live
+              </button>
+            }
           </div>
           <div class="order-items">
             @for (item of order.items; track item) {
@@ -88,7 +100,7 @@
               <span>{{ formatCurrency(order.totalAmount) }}</span>
             </div>
           </div>
-          @if (order.status === 'delivered') {
+          @if (statusOf(order) === 'delivered') {
             <div class="order-actions">
               <button class="btn btn-secondary" (click)="reorder(order)">
                 Order Again
@@ -126,5 +138,8 @@
       [options]="['requestId', 'demoCode', 'Email address', 'IP address', 'Browser type']"
       [answer]="['requestId', 'demoCode']"
       proves="requestId ties the records of one order together; your demoCode ties your orders to you — no personal data needed."></app-nr-check>
+  </app-nr-callout>
+  <app-nr-callout title="What the live tracker saw" [nrql]="socketNrql" buttonLabel="See your tracker events">
+    The tracker on each order is fed by a WebSocket to <code>/api/orders/stream</code>. The browser agent's own <b>WebSocket</b> event only arrives when a connection closes, so the tracker also reports itself as it goes: <code>order_tracker_status</code> for every status it painted (with <code>transport</code> = websocket or rest, and how long after you placed the order), and <code>order_tracker_connection</code> when the socket opens, drops, retries or falls back to polling. If a tracker ever looks stuck, this is where you can tell a slow kitchen from a broken connection.
   </app-nr-callout>
 </div>

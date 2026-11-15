@@ -29,7 +29,7 @@
   width: 40px;
   height: 40px;
   border: 4px solid #f3f3f3;
-  border-top: 4px solid #007bff;
+  border-top: 4px solid var(--ou-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem;
@@ -273,12 +273,12 @@
 }
 
 .btn-primary {
-  background-color: #007bff;
+  background-color: var(--ou-primary);
   color: white;
 }
 
 .btn-primary:hover {
-  background-color: #0056b3;
+  background-color: var(--ou-primary-dark);
 }
 
 .btn-secondary {
@@ -308,4 +308,16 @@
   .btn {
     width: 100%;
   }
+}
+/* Order tracker inside each order card */
+.order-tracker-row {
+  margin: 0.5rem 0 1.25rem;
+  padding: 1.25rem 1rem 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--ou-cream);
+  text-align: center;
+}
+
+.track-live-btn {
+  margin-top: 0.25rem;
 }

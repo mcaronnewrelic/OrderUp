@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, ChangeDetectionStrategy } from '@angular/core';
 
 import { Router } from '@angular/router';
 import { OrderService } from '../../services/order.service';
@@ -9,11 +9,13 @@ import { NrCalloutComponent } from '../nr-callout/nr-callout';
 import { NrCheckComponent } from '../nr-check/nr-check';
 import { DemoIdentityService } from '../../services/demo-identity.service';
 import { MissionProgressService } from '../../services/mission-progress.service';
+import { OrderStatusService, ORDER_STAGES } from '../../services/order-status.service';
+import { OrderTrackerComponent } from '../order-tracker/order-tracker';
 
 @Component({
   selector: 'app-orders',
   standalone: true,
-  imports: [HeaderComponent, NrCalloutComponent, NrCheckComponent],
+  imports: [HeaderComponent, NrCalloutComponent, NrCheckComponent, OrderTrackerComponent],
   templateUrl: './orders.html',
   changeDetection: ChangeDetectionStrategy.Eager,
   styleUrls: ['./orders.css']
@@ -26,13 +28,18 @@ export class OrdersComponent implements OnInit {
   readonly ordersNrql =
     "SELECT timestamp, userID, operation, duration FROM Transaction WHERE operation = 'get_orders_by_phone' AND userID = '<userId>' SINCE 1 day ago";
 
+  readonly socketNrql =
+    "SELECT timestamp, actionName, event, status, previousStatus, transport, msSinceTracked, closeCode, reason, orderId FROM PageAction WHERE appName = 'OrderUp' AND feature = 'order_tracker' AND demoCode = '<code>' SINCE 1 day ago";
+
+  protected orderStatus = inject(OrderStatusService);
+
   orders = signal<Order[]>([]);
   loading = signal<boolean>(false);
   error = signal<string | null>(null);
 
   // Computed properties for filtering and display
   sortedOrders = computed(() => {
-    return this.orders().sort((a, b) => 
+    return [...this.orders()].sort((a, b) => 
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   });
@@ -96,24 +103,35 @@ export class OrdersComponent implements OnInit {
     });
   }
 
+  /** True for the order the live tracker (and the header pill) is following. */
+  isTracked(order: Order): boolean {
+    return String(order.id) === this.orderStatus.trackedOrderId();
+  }
+
+  /** The freshest status we have: live for the tracked order, else the API's. */
+  statusOf(order: Order): string {
+    return (this.isTracked(order) && this.orderStatus.status()) || order.status;
+  }
+
+  isFinished(order: Order): boolean {
+    return ['delivered', 'cancelled'].includes(this.statusOf(order));
+  }
+
+  /** Start following this order live (WebSocket, with the polling fallback). */
+  trackLive(order: Order) {
+    this.orderStatus.track(String(order.id), order.restaurantName);
+  }
+
   getStatusDisplayName(status: string): string {
-    const statusMap: { [key: string]: string } = {
-      'pending': 'Pending',
-      'confirmed': 'Confirmed',
-      'preparing': 'Preparing',
-      'ready': 'Ready for Pickup',
-      'delivered': 'Delivered',
-      'cancelled': 'Cancelled'
-    };
-    return statusMap[status] || status;
+    if (status === 'cancelled') return 'Cancelled';
+    return ORDER_STAGES.find((stage) => stage.key === status)?.label ?? status;
   }
 
   getStatusClass(status: string): string {
     const statusClasses: { [key: string]: string } = {
       'pending': 'status-pending',
-      'confirmed': 'status-confirmed',
       'preparing': 'status-preparing',
-      'ready': 'status-ready',
+      'out_for_delivery': 'status-ready',
       'delivered': 'status-delivered',
       'cancelled': 'status-cancelled'
     };

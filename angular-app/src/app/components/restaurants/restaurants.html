@@ -8,13 +8,33 @@
   <!-- Add spacing above delivery information -->
   <div class="mt-3"></div>
 
+  <app-order-steps [step]="2"></app-order-steps>
+
   <!-- Customer Card -->
   <app-customer-card [customer]="customer"></app-customer-card>
 
   <!-- Restaurants Content -->
   <div class="row">
     <div class="col-12">
-      <h2 class="mb-4">Choose a Restaurant</h2>
+      <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+        <h1 class="h2 mb-0">What are you hungry for?</h1>
+        <span class="text-muted small">{{ filteredRestaurants().length }} of {{ allRestaurants().length }} restaurants</span>
+      </div>
+
+      <!-- Cuisine quick filters -->
+      <div class="cuisine-chips mb-3" role="group" aria-label="Filter by cuisine">
+        @for (cuisine of cuisineOptions(); track cuisine.key) {
+          <button
+            type="button"
+            class="cuisine-chip"
+            [class.active]="filter().cuisine.includes(cuisine.key)"
+            [attr.aria-pressed]="filter().cuisine.includes(cuisine.key)"
+            (click)="toggleCuisine(cuisine.key)">
+            {{ cuisine.label }}
+            <span class="cuisine-chip-count">{{ cuisine.count }}</span>
+          </button>
+        }
+      </div>
 
       <!-- Filters Section -->
       <div class="card mb-4">
@@ -28,8 +48,7 @@
             <h5 class="mb-0 d-flex justify-content-between align-items-center">
               <span>
                 <i class="fas fa-filter me-2"></i>
-                Filter Restaurants
-                <span class="badge bg-primary ms-2">{{ filteredRestaurants().length }}</span>
+                Price, rating &amp; sort
               </span>
               <i class="fas"
                 [class.fa-chevron-down]="filtersCollapsed()"
@@ -43,28 +62,8 @@
           id="filtersCollapse">
           <div class="card-body">
             <div class="row">
-              <!-- Cuisine Filter -->
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Cuisine Type</label>
-                <div class="cuisine-filters">
-                  @for (cuisine of getCuisineKeys(); track cuisine) {
-                    <div class="form-check">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        [id]="'cuisine-' + cuisine"
-                        [checked]="filter().cuisine.includes(cuisine)"
-                        (change)="toggleCuisine(cuisine)">
-                      <label class="form-check-label" [for]="'cuisine-' + cuisine">
-                        {{ getCuisineName(cuisine) }}
-                      </label>
-                    </div>
-                  }
-                </div>
-              </div>
-
               <!-- Price Filter -->
-              <div class="col-md-3 mb-3">
+              <div class="col-md-6 mb-3">
                 <label class="form-label">Price Range</label>
                 <select
                   class="form-select"
@@ -79,7 +78,7 @@
               </div>
 
               <!-- Rating Filter -->
-              <div class="col-md-3 mb-3">
+              <div class="col-md-6 mb-3">
                 <label class="form-label">Minimum Rating</label>
                 <select
                   class="form-select"
@@ -133,40 +132,33 @@
               tabindex="0"
               (keydown.enter)="viewMenu(restaurant)"
               (keydown.space)="viewMenu(restaurant)">
-              <img
-                [src]="restaurant.image || '/assets/img/restaurants/default.jpg'"
-                [alt]="restaurant.name"
-                class="card-img-top restaurant-image"
-                (error)="$any($event.target).src='/assets/img/restaurants/default.jpg'">
-                <div class="card-body d-flex flex-column">
-                  <h5 class="card-title">{{ restaurant.name }}</h5>
-                  <p class="card-text text-muted">{{ restaurant.cuisine | titlecase }}</p>
-                  @if (restaurant.description) {
-                    <p class="card-text flex-grow-1">
-                      {{ restaurant.description }}
-                    </p>
-                  }
-                  <div class="restaurant-info mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                      <div class="rating">
-                        <span class="text-warning fs-5">
-                          {{ getFilledStars(restaurant.rating) }}<span class="text-muted">{{ getEmptyStars(restaurant.rating) }}</span>
-                        </span>
-                        <span class="ms-1">{{ restaurant.rating }}/5</span>
-                      </div>
-                      <div class="price">
-                        <span class="text-success">
-                          {{ getDollarSigns(restaurant.price) }}
-                        </span>
-                      </div>
-                    </div>
+              <div class="card-body d-flex gap-3">
+                <!-- Shown at (or under) the photo's native 150px so it stays sharp -->
+                <img
+                  [src]="restaurant.image || '/assets/img/restaurants/default.jpg'"
+                  alt=""
+                  width="104"
+                  height="104"
+                  loading="lazy"
+                  class="restaurant-thumb"
+                  (error)="$any($event.target).src='/assets/img/restaurants/default.jpg'">
+                <div class="d-flex flex-column flex-grow-1 min-w-0">
+                  <div class="d-flex align-items-start justify-content-between gap-2">
+                    <h2 class="restaurant-name">{{ restaurant.name }}</h2>
+                    <span class="restaurant-price" [attr.aria-label]="'Price level ' + restaurant.price + ' of 4'">{{ getDollarSigns(restaurant.price) }}</span>
                   </div>
-                  <button
-                    class="btn btn-primary mt-auto"
-                    (click)="viewMenu(restaurant); $event.stopPropagation()"
-                    [attr.aria-label]="'View menu for ' + restaurant.name">
-                  View Menu
-                </button>
+                  <span class="restaurant-cuisine">{{ restaurant.cuisine | titlecase }}</span>
+                  @if (restaurant.description) {
+                    <p class="restaurant-description">{{ restaurant.description }}</p>
+                  }
+                  <div class="d-flex align-items-center justify-content-between mt-auto pt-2">
+                    <span class="rating" [attr.aria-label]="restaurant.rating + ' out of 5 stars'">
+                      <span class="rating-stars" aria-hidden="true">{{ getFilledStars(restaurant.rating) }}<span class="rating-empty">{{ getEmptyStars(restaurant.rating) }}</span></span>
+                      <span class="rating-value">{{ restaurant.rating }}.0</span>
+                    </span>
+                    <span class="restaurant-cta">View menu <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -186,6 +178,11 @@
 </div>
 
 <div class="container mb-5">
+  <app-nr-callout title="Clicks the server never sees" [nrql]="clicksNrql" buttonLabel="See your clicks">
+    Filtering this list happens entirely in your browser, so no request reaches the API. The browser agent still knows:
+    each filter sends <code>addPageAction('restaurant_filter_applied')</code> with the filter and how many restaurants were left.
+    Opening a menu, adding to the cart, starting checkout and placing the order each send one too.
+  </app-nr-callout>
   <app-nr-callout title="The restaurant list request" [nrql]="listNrql" buttonLabel="See the transaction">
     This page loads its restaurants from <code>GET /api/restaurant</code>. New Relic times every call, so you can see how fast the list comes back.
   </app-nr-callout>

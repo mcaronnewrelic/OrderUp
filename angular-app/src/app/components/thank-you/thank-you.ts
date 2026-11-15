@@ -4,6 +4,8 @@ import { RouterModule } from '@angular/router';
 import { HeaderComponent } from '../header/header';
 import { NrCalloutComponent } from '../nr-callout/nr-callout';
 import { NrCheckComponent } from '../nr-check/nr-check';
+import { OrderStepsComponent } from '../order-steps/order-steps';
+import { OrderTrackerComponent } from '../order-tracker/order-tracker';
 import { MissionProgressService } from '../../services/mission-progress.service';
 import { OrderStatusService } from '../../services/order-status.service';
 import { CartItem } from '../../models/restaurant.model';
@@ -15,6 +17,8 @@ import { CartItem } from '../../models/restaurant.model';
     HeaderComponent,
     NrCalloutComponent,
     NrCheckComponent,
+    OrderStepsComponent,
+    OrderTrackerComponent,
   ],
   templateUrl: './thank-you.html',
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -24,20 +28,6 @@ export class ThankYouComponent {
   protected readonly Math = Math;
   private progress = inject(MissionProgressService);
   protected orderStatus = inject(OrderStatusService);
-
-  /** Domino's-style tracker stages, in lifecycle order. */
-  readonly stages = [
-    { key: 'pending', label: 'Order received', icon: 'fas fa-receipt' },
-    { key: 'preparing', label: 'Preparing', icon: 'fas fa-utensils' },
-    { key: 'out_for_delivery', label: 'Out for delivery', icon: 'fas fa-bicycle' },
-    { key: 'delivered', label: 'Delivered', icon: 'fas fa-flag-checkered' },
-  ];
-
-  /** Index of the current stage, or -1 before the first status / for unknown statuses. */
-  get stageIndex(): number {
-    const status = this.orderStatus.status();
-    return this.stages.findIndex((stage) => stage.key === status);
-  }
 
   // Set by checkout through router state; missing if someone opens /thank-you directly
   readonly orderId: string | undefined =
