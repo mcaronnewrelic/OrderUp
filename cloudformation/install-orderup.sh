@@ -79,15 +79,70 @@ configure_postgresql() {
     log "PostgreSQL is ready!"
 }
 
+# Build the two PostgreSQL extensions the New Relic PostgreSQL integration needs for query
+# details, execution plans and wait events (PostgresIndividualQueries,
+# PostgresExecutionPlanMetrics, PostgresWaitEvents). Neither is packaged for Amazon Linux 2023,
+# so they are compiled from source. Best effort: a failed build is logged and skipped, and a
+# library is only preloaded if its .so file was really built, because PostgreSQL will not
+# start with a missing one in shared_preload_libraries. Build output: /var/log/pg-extension-build.log
+PG_STAT_MONITOR_VERSION="2.4.0"
+PG_WAIT_SAMPLING_VERSION="1.1.11"
+PRELOAD_LIBRARIES="pg_stat_statements"
+
+build_pg_extension() {
+    local url="$1"
+    local dir
+    local status=0
+    dir="$(mktemp -d)"
+    (
+        set -e
+        curl -fsSL "$url" | tar -xz -C "$dir" --strip-components=1
+        cd "$dir"
+        make USE_PGXS=1 PG_CONFIG=/usr/bin/pg_config
+        make USE_PGXS=1 PG_CONFIG=/usr/bin/pg_config install
+    ) >> /var/log/pg-extension-build.log 2>&1 || status=$?
+    rm -rf "$dir"
+    return $status
+}
+
+install_postgresql_query_extensions() {
+    log "Building pg_stat_monitor and pg_wait_sampling (best effort)..."
+    if ! dnf install -y postgresql16-server-devel gcc make tar; then
+        log "WARNING: could not install the build tools; skipping pg_stat_monitor and pg_wait_sampling"
+        return 0
+    fi
+    local libdir
+    libdir="$(/usr/bin/pg_config --pkglibdir)"
+
+    if build_pg_extension "https://github.com/percona/pg_stat_monitor/archive/refs/tags/${PG_STAT_MONITOR_VERSION}.tar.gz" \
+        && [ -f "$libdir/pg_stat_monitor.so" ]; then
+        PRELOAD_LIBRARIES="${PRELOAD_LIBRARIES},pg_stat_monitor"
+        log "pg_stat_monitor ${PG_STAT_MONITOR_VERSION} built"
+    else
+        log "WARNING: pg_stat_monitor did not build; query details and execution plans will be missing"
+    fi
+
+    if build_pg_extension "https://github.com/postgrespro/pg_wait_sampling/archive/refs/tags/v${PG_WAIT_SAMPLING_VERSION}.tar.gz" \
+        && [ -f "$libdir/pg_wait_sampling.so" ]; then
+        PRELOAD_LIBRARIES="${PRELOAD_LIBRARIES},pg_wait_sampling"
+        log "pg_wait_sampling ${PG_WAIT_SAMPLING_VERSION} built"
+    else
+        log "WARNING: pg_wait_sampling did not build; wait events will be missing"
+    fi
+}
+
 # Setup PostgreSQL monitoring with comprehensive extensions
 setup_postgresql_monitoring() {
     log "Setting up PostgreSQL monitoring extensions..."
+
+    # Never let an optional extension build stop the install (set -e is on).
+    install_postgresql_query_extensions || log "WARNING: extension build step failed; continuing without it"
     
     # Configure shared_preload_libraries and pg_stat_statements settings
     if ! grep -q "shared_preload_libraries" /var/lib/pgsql/data/postgresql.conf; then
-        echo "shared_preload_libraries = 'pg_stat_statements'" >> /var/lib/pgsql/data/postgresql.conf
+        echo "shared_preload_libraries = '${PRELOAD_LIBRARIES}'" >> /var/lib/pgsql/data/postgresql.conf
     else
-        sed -i "s/^#*shared_preload_libraries = .*/shared_preload_libraries = 'pg_stat_statements'/" /var/lib/pgsql/data/postgresql.conf
+        sed -i "s/^#*shared_preload_libraries = .*/shared_preload_libraries = '${PRELOAD_LIBRARIES}'/" /var/lib/pgsql/data/postgresql.conf
     fi
     
     # Add comprehensive pg_stat_statements configuration
@@ -103,6 +158,10 @@ pg_stat_statements.track_utility = on
 # reads slow queries, so it fails with "pq: division by zero (22012)" and
 # reports no PostgresSlowQueries, PostgresIndividualQueries or execution plans.
 pg_stat_statements.track_planning = off
+
+# pg_stat_monitor (if it built): record each query's execution plan, which the
+# New Relic integration reads for PostgresExecutionPlanMetrics. Harmless if it is not loaded.
+pg_stat_monitor.pgsm_enable_query_plan = on
 
 # Additional performance monitoring settings
 log_statement_stats = off
@@ -149,6 +208,16 @@ EOF
     sudo -u postgres psql -d orderup -c "CREATE EXTENSION IF NOT EXISTS pg_buffercache;"
     sudo -u postgres psql -d orderup -c "CREATE EXTENSION IF NOT EXISTS pgstattuple;"
     sudo -u postgres psql -d orderup -c "CREATE EXTENSION IF NOT EXISTS pgrowlocks;"
+    # Only for the libraries that were actually built and preloaded above.
+    case ",${PRELOAD_LIBRARIES}," in
+        *,pg_stat_monitor,*) sudo -u postgres psql -d orderup -c "CREATE EXTENSION IF NOT EXISTS pg_stat_monitor;" ;;
+    esac
+    case ",${PRELOAD_LIBRARIES}," in
+        *,pg_wait_sampling,*) sudo -u postgres psql -d orderup -c "CREATE EXTENSION IF NOT EXISTS pg_wait_sampling;" ;;
+    esac
+    # tablefunc provides crosstab(), which the New Relic integration needs for the db.locks.* metrics
+    # (COLLECT_DB_LOCK_METRICS); without it the integration logs a warning and sends none.
+    sudo -u postgres psql -d orderup -c "CREATE EXTENSION IF NOT EXISTS tablefunc;"
     
     # Fix PostgreSQL log permissions for New Relic monitoring access
     log "Configuring PostgreSQL log permissions for monitoring..."
@@ -590,6 +659,9 @@ integrations:
       INVENTORY: true
       COLLECTION_LIST: ALL
       ENABLE_QUERY_MONITORING: true
+      # Report individual queries and plans for every query, not only those slower than 1 ms
+      # (this app's queries all run in under a millisecond, so the default would show nothing).
+      QUERY_MONITORING_RESPONSE_TIME_THRESHOLD: 0
       COLLECT_DB_LOCK_METRICS: true
       COLLECT_BLOAT_METRICS: true
       CUSTOM_ATTRIBUTES: '{"service":"postgresql","environment":"$environment","application":"orderup","database":"orderup","deployment":"ec2"}'

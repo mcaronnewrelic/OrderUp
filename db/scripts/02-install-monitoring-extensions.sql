@@ -31,11 +31,16 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_monitor;
 CREATE EXTENSION IF NOT EXISTS pg_wait_sampling;
 \echo 'pg_wait_sampling extension installed'
 
+-- Install tablefunc, whose crosstab() the New Relic PostgreSQL integration needs for the
+-- db.locks.* metrics (COLLECT_DB_LOCK_METRICS); without it that integration sends none.
+CREATE EXTENSION IF NOT EXISTS tablefunc;
+\echo 'tablefunc extension installed'
+
 -- Verify all extensions are installed
 \echo 'Verifying installed extensions:'
 SELECT extname, extversion 
 FROM pg_extension 
-WHERE extname IN ('pg_stat_statements', 'pg_stat_monitor', 'pg_wait_sampling', 'pg_buffercache', 'pgstattuple', 'pgrowlocks')
+WHERE extname IN ('pg_stat_statements', 'pg_stat_monitor', 'pg_wait_sampling', 'pg_buffercache', 'pgstattuple', 'pgrowlocks', 'tablefunc')
 ORDER BY extname;
 
 -- Show pg_stat_statements configuration

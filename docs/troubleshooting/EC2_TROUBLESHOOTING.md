@@ -22,6 +22,7 @@ Checked on a running staging instance on 2026-10-31.
 - **The Node app** serves the Angular build from `/opt/orderup/dist/browser`, and answers unknown paths with `index.html` so Angular routes work.
 - **The backend** runs under **PM2** as `ec2-user`, as the process `orderup-backend`. There is no systemd unit for it. Its code is in `/opt/orderup/backend`, with the settings in `.env` and `ecosystem.config.js`, and its logs are in `/opt/orderup/logs`.
 - **PostgreSQL 16** runs as the systemd service **`postgresql`** (not `postgresql-16`).
+- **PostgreSQL's monitoring extensions** `pg_stat_monitor` and `pg_wait_sampling` are compiled from source at first boot, best effort. `grep -i warning /var/log/user-data.log` shows whether one was skipped, `/var/log/pg-extension-build.log` has the compiler output, and `sudo -u postgres psql -c 'SHOW shared_preload_libraries'` says what is actually loaded.
 - **The Angular source** is in `/opt/orderup/angular-app` and is built on the instance.
 - **Installation** runs once, when the instance first boots, from `install-orderup.sh` in the deployment S3 bucket. Its output is in `/var/log/cloud-init-output.log`.
 

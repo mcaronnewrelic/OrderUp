@@ -115,7 +115,7 @@ Deploy to AWS EC2 with the **deploy-cloudformation** workflow:
    ```
 3. **Configure GitHub Variables** (the Variables tab next to Secrets):
    ```
-   EC2_KEY_NAME        an existing EC2 key pair in the region
+   EC2_KEY_NAME        an existing EC2 key pair in the region, by name (nru), not the .pem file name
    NEW_RELIC_APP_ID    the APM entity GUID, for deployment markers
    AWS_REGION          optional, defaults to us-west-2
    ```

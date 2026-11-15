@@ -10,7 +10,7 @@
 # Pull requests that change cloudformation/ only get the template checks. See cloudformation/README.md.
 #
 # Secrets:   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, DB_PASSWORD, NEW_RELIC_LICENSE_KEY, NEW_RELIC_API_KEY.
-# Variables: EC2_KEY_NAME (name of an existing EC2 key pair), NEW_RELIC_APP_ID (entity GUID, for deployment
+# Variables: EC2_KEY_NAME (name of an existing EC2 key pair, as listed in EC2: "nru", not "nru.pem"), NEW_RELIC_APP_ID (entity GUID, for deployment
 #            markers), AWS_REGION (optional, default us-west-2), CERTIFICATE_ARN (optional). This workflow reads
 #            them as `vars.`, so setting one of these as a secret has no effect.
 #            NEW_RELIC_ACCOUNT_ID and NEW_RELIC_BROWSER_ENTITY_GUID are optional variables too: when set, code

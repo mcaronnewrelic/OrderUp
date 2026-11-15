@@ -16,6 +16,9 @@ integrations:
       METRICS: true
       INVENTORY: true
       REMOTE_MONITORING: true
+      # Lock counts per mode (db.locks.* on PostgresqlDatabaseSample); needs the tablefunc
+      # extension, which the db init script creates.
+      COLLECT_DB_LOCK_METRICS: true
       # Query performance monitoring. Slow queries need pg_stat_statements; individual
       # queries and execution plans need pg_stat_monitor. Both are built into and loaded
       # by the db service (docker/postgres-monitoring.dockerfile).
