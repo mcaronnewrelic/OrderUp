@@ -9,7 +9,7 @@ Reference and troubleshooting for OrderUp's Docker setups. To get the app runnin
 | `orderup` | `orderup-app` | yes | yes | Node/Express app on port 3000 (published on your machine in the simple setup only). Reads `../.env`. Serves the Angular build from the mounted `dist/` (simple setup) or the image (full setup). |
 | `nginx` | `orderup-nginx` | yes | yes | Reverse proxy. Port 80 (`HTTP_PORT` in simple, `NGINX_PORT` in full). The full setup also maps 443 (`NGINX_SSL_PORT`). |
 | `db` | `orderup-db` | yes | yes | PostgreSQL 16. Port 5432 is open to other containers only, not to your machine. Data lives in the `db-data` volume. |
-| `newrelic-infra` | `orderup-infra` | no | yes | The real New Relic infrastructure agent (`newrelic/infrastructure`), privileged, with host PID and network. Reports the Docker VM as its host on Docker Desktop. |
+| `newrelic-infra` | `orderup-infra` | no | yes | The real New Relic infrastructure agent (`newrelic/infrastructure-bundle`: agent plus the nginx and PostgreSQL integrations), privileged, with host PID, on the compose network. Reports the Docker VM as its host on Docker Desktop. |
 
 The database is created from `db/init/01-init-schema.sql` and `db/init/02-import-restaurants-uuid.sql`. Docker runs those only when the `db-data` volume is first created. To run them again, use `npm run docker:clean` and start again. That deletes the data.
 

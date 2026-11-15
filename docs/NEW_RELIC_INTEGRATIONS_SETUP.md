@@ -1,6 +1,6 @@
 # New Relic Integrations: nginx and PostgreSQL
 
-How the infrastructure agent monitors nginx and PostgreSQL. This applies to the **EC2 deployment**. The local Docker setups run the infrastructure agent, but no nginx or PostgreSQL integration (see below).
+How the infrastructure agent monitors nginx and PostgreSQL. It runs on the **EC2 deployment** (installed by `install-orderup.sh`) and in the **full local Docker setup** (`npm run docker:dev:full`, configured by `newrelic-integrations/docker/`).
 
 ## What is installed
 
@@ -38,6 +38,63 @@ Or from your machine: `cloudformation/validate-monitoring.sh -e staging`.
 - **PostgreSQL authentication errors:** the `newrelic` user's password is generated at install time and written into the integration file. Do not edit the user without updating the file.
 - `cloudformation/diagnose-nginx-monitoring.sh` and `diagnose-postgresql-monitoring.sh` check each step of the above.
 
+## Query details and execution plans
+
+The PostgreSQL integration can report which queries are slow, each execution of them, and their execution plans. These are separate event types, with different requirements:
+
+| Event type | What it feeds | Needs |
+|---|---|---|
+| `PostgresSlowQueries` | The slow-query list | `pg_stat_statements` loaded and created in the database, `ENABLE_QUERY_MONITORING: true`, and the `pg_read_all_stats` role for the user. Queries must take longer than `QUERY_MONITORING_RESPONSE_TIME_THRESHOLD` ms (default 1). |
+| `PostgresIndividualQueries` | The "query details" charts | Everything above, **plus the `pg_stat_monitor` extension**. |
+| `PostgresExecutionPlanMetrics` | The execution plan charts | The same: the integration prints `Extension 'pg_stat_monitor' is not enabled or unsupported version` without it. |
+| `PostgresWaitEvents`, `PostgresBlockingSessions` | Wait and blocking charts | Not verified: no such events appeared in the local run, and they depend on what the database is doing. |
+
+### Why the AWS charts are empty
+
+Two separate causes, found by running the integration against the local database:
+
+1. **`track_planning` broke slow-query collection (fixed in the scripts).** Both monitoring setup scripts turned on `pg_stat_statements.track_planning`. With it on, `pg_stat_statements` keeps rows whose `calls` is 0, and the integration divides by `calls` when it reads slow queries. It fails with `Error fetching slow-running queries: pq: division by zero (22012)` and sends **no** query events at all. The error is only in the agent's log, not in any data. `db/scripts/01-setup-monitoring-config.sh` and `cloudformation/install-orderup.sh` now set it to `off`, which covers new databases. An **existing** database needs the change applied by hand:
+
+   ```bash
+   # On the EC2 instance (Session Manager or SSH), or: docker exec -it orderup-db sh
+   sudo -u postgres psql -d orderup      -c "ALTER SYSTEM SET pg_stat_statements.track_planning = off"      -c "SELECT pg_reload_conf()"      -c "SELECT pg_stat_statements_reset()"
+   ```
+
+   No restart is needed. Within a minute or two, `SELECT count(*) FROM PostgresSlowQueries SINCE 10 minutes ago` in New Relic should return rows. (Locally, with the stock database image, this was verified: before, 0 slow-query events and the division-by-zero error; after, 40 events in ten minutes.)
+
+2. **`pg_stat_monitor` is not installed on EC2 (not fixed there).** The EC2 PostgreSQL package does not include Percona's `pg_stat_monitor`, so on AWS `PostgresIndividualQueries` and `PostgresExecutionPlanMetrics` stay empty, and the "query details" and "execution plans" charts with them. The local Docker database now has it (see below), which shows what the instance needs: build or package the extension for the instance's PostgreSQL 16, add it to `shared_preload_libraries` next to `pg_stat_statements`, **restart PostgreSQL**, run `CREATE EXTENSION pg_stat_monitor` in the `orderup` database, and turn on `pg_stat_monitor.pgsm_enable_query_plan`. That has not been done on EC2, and the install script does not do it yet. Even then, only queries slower than `QUERY_MONITORING_RESPONSE_TIME_THRESHOLD` ms (default 1) become individual-query and plan events, and this app's queries are all faster, so the charts fill only when something slow runs (for example an armed "It's not checkout" investigation) unless you lower the threshold.
+
+To check from New Relic which events a host sends:
+
+```
+SELECT count(*) FROM PostgresSlowQueries, PostgresIndividualQueries, PostgresExecutionPlanMetrics, PostgresWaitEvents FACET eventType(), hostname SINCE 30 minutes ago
+```
+
+To see the integration's own errors, run it by hand (this prints nothing on stdout but the data, and errors on stderr):
+
+```bash
+# Local: from the agent container
+docker exec orderup-infra sh -c 'HOSTNAME=db PORT=5432 USERNAME=$DB_USER PASSWORD=$DB_PASSWORD DATABASE=$DB_NAME SSL_MODE=disable COLLECTION_LIST=ALL METRICS=true ENABLE_QUERY_MONITORING=true /var/db/newrelic-infra/newrelic-integrations/bin/nri-postgresql >/dev/null'
+```
+
 ## Locally
 
-`npm run docker:dev:full` starts the official `newrelic/infrastructure` image, which reports the Docker host and the containers. It does not run the nginx or PostgreSQL integrations: the configs in `newrelic-integrations/` point at `localhost` and the EC2 database user, and they are not mounted. To get nginx and PostgreSQL data from the local containers, mount configs that point at `http://nginx/nginx_status` and the `db` service, and give the agent a database user to log in with. See [docker/README.md](../docker/README.md).
+`npm run docker:dev:full` starts the `newrelic/infrastructure-bundle` image, which contains the agent and the nginx and PostgreSQL integrations, on the compose network. Two files in [newrelic-integrations/docker/](../newrelic-integrations/docker/) are mounted into it:
+
+- `nginx-config.yml` reads `http://nginx/nginx_status` (the dev nginx config allows private address ranges on that path). Inventory is off, because nginx's config file is in another container.
+- `postgresql-config.yml` connects to the `db` service as the database's own user. The agent fills in `{{DB_USER}}`, `{{DB_PASSWORD}}` and `{{DB_NAME}}` from its environment, which compose sets from `.env`. That user is a superuser in this local container; the EC2 setup uses a read-only `newrelic` user instead.
+
+In New Relic you get `NginxSample`, `PostgresqlInstanceSample`, `PostgresqlDatabaseSample`, `PostgresSlowQueries`, `PostgresIndividualQueries` and `PostgresExecutionPlanMetrics`, labelled `env = local-docker`. The query-details and execution-plan charts work: the local database image is built with `pg_stat_monitor` (compiled from Percona's source in `docker/postgres-monitoring.dockerfile`, which needs internet access on the first build), `docker-compose.arm64.yml` preloads it alongside `pg_stat_statements`, the init script creates it and turns on plan capture, and `postgresql-config.yml` sets `QUERY_MONITORING_RESPONSE_TIME_THRESHOLD: 0` so that ordinary traffic produces events (the app's queries all run in under a millisecond).
+
+The integration also monitors itself, so its own queries appear among the top rows. Wait events (`PostgresWaitEvents`) need a further extension, `pg_wait_sampling`, which is not installed.
+
+**An existing local database volume** does not run the init scripts again, so after rebuilding the image (`docker-compose --env-file .env -f docker/docker-compose.arm64.yml up -d --build db`) run these once:
+
+```bash
+docker exec orderup-db psql -U orderup_user -d orderup -c "CREATE EXTENSION IF NOT EXISTS pg_stat_monitor"
+docker exec orderup-db psql -U orderup_user -d orderup -c "ALTER SYSTEM SET pg_stat_monitor.pgsm_enable_query_plan = on" -c "SELECT pg_reload_conf()"
+```
+
+The app keeps one database connection, so restart it (`docker restart orderup-app`) after the database restarts.
+
+If an integration does not appear, `docker logs orderup-infra` shows `Integration health check finished with success` for each one that started, or `integration exited with error state`. The usual causes are a missing `DB_PASSWORD` in `.env`, and `INVENTORY: true` on the nginx integration (it tries to read a local `/etc/nginx/nginx.conf`).

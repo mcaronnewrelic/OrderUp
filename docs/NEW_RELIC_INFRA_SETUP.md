@@ -152,7 +152,7 @@ The complete file is written by `cloudformation/install-orderup.sh`; [newrelic-i
 
 ## Running it locally (Docker)
 
-`npm run docker:dev:full` starts the official `newrelic/infrastructure` image (pinned to 2.0.1, the version the EC2 install script uses) next to the app, nginx and PostgreSQL.
+`npm run docker:dev:full` starts the official `newrelic/infrastructure-bundle` image (3.6.3: agent 2.0.2 plus the nginx and PostgreSQL integrations) next to the app, nginx and PostgreSQL. The EC2 hosts run agent 2.0.1; the bundle has no 2.0.1 build to match.
 
 1. Put your license key in `.env` as `NEW_RELIC_LICENSE_KEY`. The agent reads `NRIA_LICENSE_KEY` and falls back to that. If neither is set, or it is still the placeholder, the container exits with `invalid license`.
 2. Start it: `npm run docker:dev:full`.
@@ -160,8 +160,8 @@ The complete file is written by `cloudformation/install-orderup.sh`; [newrelic-i
 
 What to expect:
 
-- The agent runs with `privileged: true`, `pid: host` and `network_mode: host`, and mounts `/` and the Docker socket read-only. On Docker Desktop the "host" it reports is the Docker VM (hostname `docker-desktop`), not your computer.
-- It reports host metrics, processes and Docker containers. It does **not** run the nginx or PostgreSQL integrations; see [New Relic Integrations](./NEW_RELIC_INTEGRATIONS_SETUP.md).
+- The agent runs with `privileged: true` and `pid: host`, and mounts `/` and the Docker socket read-only. On Docker Desktop the "host" it reports is the Docker VM (hostname `docker-desktop`), not your computer. It is on the compose network, not the host's, so it can reach `nginx` and `db`; network-interface metrics therefore describe the container.
+- It reports host metrics, processes and Docker containers, and runs the nginx and PostgreSQL integrations (`NginxSample`, `PostgresqlInstanceSample`, `PostgresqlDatabaseSample`, `PostgresSlowQueries`), configured by `newrelic-integrations/docker/`. See [New Relic Integrations](./NEW_RELIC_INTEGRATIONS_SETUP.md).
 - Its log has harmless errors about DMI data (`product_uuid`, `sys_vendor`) and `DBus`, because a Docker VM has neither.
 
 Troubleshooting:

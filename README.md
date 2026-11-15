@@ -313,7 +313,7 @@ Two compose files in `docker/` are maintained. Both read `.env` from the reposit
 | `docker-compose.dev-simple.yml` | `npm run docker:dev:simple` | The app (`orderup`), PostgreSQL 16 (`db`) and nginx. Ports 80 and 3000. |
 | `docker-compose.arm64.yml` | `npm run docker:dev:full` | The same, plus PostgreSQL with the monitoring extensions and the real New Relic infrastructure agent (`newrelic-infra`, pinned to the version the EC2 hosts use). Only nginx is published (80 and 443). |
 
-The infrastructure agent in the full setup runs privileged, with the host's PID namespace and network, and mounts the host filesystem and Docker socket read-only. On Docker Desktop the host it reports is the Docker VM, not your computer. Its `newrelic-integrations/` files are written for the EC2 deployment and are not mounted locally.
+The infrastructure agent in the full setup (the `newrelic/infrastructure-bundle` image) runs privileged, with the host's PID namespace, and mounts the host filesystem and Docker socket read-only. On Docker Desktop the host it reports is the Docker VM, not your computer. It also runs the nginx and PostgreSQL integrations against the `nginx` and `db` containers, configured by `newrelic-integrations/docker/`. Slow queries, individual queries and execution plans are all reported: the database image is built with Percona's `pg_stat_monitor`, which the plan and query-detail charts need (see [New Relic Integrations](./docs/NEW_RELIC_INTEGRATIONS_SETUP.md)).
 
 The earlier compose files (`docker-compose.yml`, the dev and dev-container overrides, the load test setup) are kept in `docker/archive/` and are not maintained. To work in a VS Code dev container, see [DevContainer Setup](./docs/setup/DEVCONTAINER_SETUP.md).
 

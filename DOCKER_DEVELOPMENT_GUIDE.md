@@ -32,7 +32,7 @@ The quick start for running OrderUp on your machine. For what each file in `dock
 | | Simple | Full |
 |---|---|---|
 | Command | `npm run docker:dev:simple` | `npm run docker:dev:full` |
-| Runs | App, PostgreSQL, nginx | The same, plus the real New Relic infrastructure agent and PostgreSQL with the monitoring extensions |
+| Runs | App, PostgreSQL, nginx | The same, plus the real New Relic infrastructure agent (with its nginx and PostgreSQL integrations) and PostgreSQL with the monitoring extensions, built from source on the first run |
 | Compose file | `docker/docker-compose.dev-simple.yml` | `docker/docker-compose.arm64.yml` |
 | Use it for | Feature work and debugging | Testing monitoring and production-like behavior. Only nginx is published, so use http://localhost (no port 3000). |
 | Startup | About 30 seconds | About 60 seconds |

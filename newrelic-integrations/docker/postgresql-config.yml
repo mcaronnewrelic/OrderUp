@@ -1,0 +1,35 @@
+# PostgreSQL integration for the local full Docker setup (docker/docker-compose.arm64.yml).
+# Mounted into the infrastructure container at /etc/newrelic-infra/integrations.d/.
+# It logs in as the database's own user (a superuser in this local container); the
+# credentials come from the agent container's environment (compose fills it from .env);
+# the agent replaces {{NAME}} with that environment variable before it reads this file.
+integrations:
+  - name: nri-postgresql
+    env:
+      HOSTNAME: db
+      PORT: 5432
+      USERNAME: "{{DB_USER}}"
+      PASSWORD: "{{DB_PASSWORD}}"
+      DATABASE: "{{DB_NAME}}"
+      SSL_MODE: disable
+      COLLECTION_LIST: ALL
+      METRICS: true
+      INVENTORY: true
+      REMOTE_MONITORING: true
+      # Query performance monitoring. Slow queries need pg_stat_statements; individual
+      # queries and execution plans need pg_stat_monitor. Both are built into and loaded
+      # by the db service (docker/postgres-monitoring.dockerfile).
+      ENABLE_QUERY_MONITORING: true
+      # Only queries slower than this many ms become individual-query and plan events.
+      # The app's own queries all run in under 1 ms, so the default of 1 shows nothing
+      # until something slow is armed; 0 reports ordinary traffic. Fine locally; on a
+      # real system a higher value keeps the event volume down.
+      QUERY_MONITORING_RESPONSE_TIME_THRESHOLD: 0
+      QUERY_MONITORING_COUNT_THRESHOLD: 20
+    interval: 30s
+    labels:
+      env: local-docker
+      role: database
+      service: postgresql
+      application: orderup
+      deployment: docker

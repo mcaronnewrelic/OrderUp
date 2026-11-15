@@ -98,7 +98,11 @@ pg_stat_statements.max = 10000
 pg_stat_statements.track = all
 pg_stat_statements.save = on
 pg_stat_statements.track_utility = on
-pg_stat_statements.track_planning = on
+# track_planning stays off: with it on, pg_stat_statements keeps rows with
+# calls = 0, and the New Relic PostgreSQL integration divides by calls when it
+# reads slow queries, so it fails with "pq: division by zero (22012)" and
+# reports no PostgresSlowQueries, PostgresIndividualQueries or execution plans.
+pg_stat_statements.track_planning = off
 
 # Additional performance monitoring settings
 log_statement_stats = off

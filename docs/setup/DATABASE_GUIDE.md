@@ -24,7 +24,7 @@ In the Docker setups the database port is **not published to your machine**. Use
 1. `01-init-schema.sql` creates the tables and indexes: `restaurants`, `menu_items`, `customers`, `orders` and `order_items`. An order's `status` starts as `pending`; the order-status worker then advances it through `preparing` and `out_for_delivery` to `delivered`.
 2. `02-import-restaurants-uuid.sql` loads the 39 restaurants and their menus. It is generated from `server/data/restaurants.json` and **empties the tables before loading**.
 
-The full setup (`docker-compose.arm64.yml`) also runs the scripts in `db/scripts/` first, to turn on the monitoring extensions (`pg_stat_statements` and others) for New Relic: `01-setup-monitoring-config.sh`, `02-install-monitoring-extensions.sql` and `03-monitoring-post-setup.sh`. The compose file starts PostgreSQL with `shared_preload_libraries=pg_stat_statements` for this to work.
+The full setup (`docker-compose.arm64.yml`) also runs the scripts in `db/scripts/` first, to turn on the monitoring extensions (`pg_stat_monitor`, built into the image, and `pg_stat_statements` and others) for New Relic: `01-setup-monitoring-config.sh`, `02-install-monitoring-extensions.sql` and `03-monitoring-post-setup.sh`. The compose file starts PostgreSQL with `shared_preload_libraries=pg_stat_statements,pg_stat_monitor` for this to work. The scripts are copied into the image, so after editing one, rebuild it (`up -d --build db`) before the change takes effect on a new volume.
 
 If any of these scripts fails, the container may still start, but the database is left half-built, and PostgreSQL will not run the scripts again on that volume. That is the usual cause of an empty "no restaurants" site. See Troubleshooting below.
 

@@ -8,11 +8,11 @@ Reference copies of the configuration the New Relic infrastructure agent uses on
 | `postgres-config.yml` | `nri-postgresql` | Connects to `localhost:5432` as the read-only `newrelic` user, with its password from `NEWRELIC_DB_PASSWORD`. |
 | `orderup-logs.yml` | Log forwarding | Tails the PM2 backend logs under `/opt/orderup/logs`, the nginx access and error logs and the PostgreSQL logs. |
 
-## These files are not what runs
+## What runs where
 
-`cloudformation/install-orderup.sh` writes the real files on the instance (under `/etc/newrelic-infra/integrations.d/` and `logging.d/`), with the generated `newrelic` database password filled in. Nothing copies these files there, and the local Docker setups do not mount them. If you change the monitoring, change `install-orderup.sh` first and keep these copies in step.
+**On EC2**, `cloudformation/install-orderup.sh` writes the real files (under `/etc/newrelic-infra/integrations.d/` and `logging.d/`), with the generated `newrelic` database password filled in. Nothing copies the three files above there. If you change the monitoring, change `install-orderup.sh` first and keep these copies in step.
 
-The same is true of the local Docker infrastructure agent in `docker/docker-compose.arm64.yml`: it reports the Docker host and containers, but runs no nginx or PostgreSQL integration, because these configs point at `localhost` and the EC2 `newrelic` user. To monitor the local containers you would need configs that point at the `nginx` and `db` services.
+**In the local full Docker setup**, the files in [`docker/`](./docker/) are what run: `nginx-config.yml` (reads `http://nginx/nginx_status`) and `postgresql-config.yml` (connects to the `db` service with the credentials from `.env`). `docker/docker-compose.arm64.yml` mounts that folder into the `newrelic/infrastructure-bundle` container, which includes `nri-nginx` and `nri-postgresql`. The agent replaces `{{DB_USER}}`, `{{DB_PASSWORD}}` and `{{DB_NAME}}` in the file with its environment variables, which compose sets from `.env`. (The plain `newrelic/infrastructure` image has neither integration.)
 
 ## Checking it on EC2
 
