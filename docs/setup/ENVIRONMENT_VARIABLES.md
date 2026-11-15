@@ -67,6 +67,9 @@ For the teaching exercises. All optional; see [New Relic Demo Features](../NEW_R
 | `DEMO_DB_LOCK` | Truthy: lock the orders table for 15 minutes. |
 | `DEMO_DB_BIG_ORDERS` | Truthy: seed 200,000 synthetic customers so the phone lookup has to scan. |
 | `DEMO_ORDER_POISON` | Truthy: slip a legacy order into the table that freezes the order-status worker. |
+| `DEMO_DB_WAIT_EVENTS` | Truthy: run a scheduled database wait episode on a scratch table, so the wait-event and blocking-session charts have data. |
+| `DEMO_DB_WAIT_EVENTS_INTERVAL_SECONDS` | Seconds between episodes (default 180, 30 to 3600). |
+| `DEMO_DB_WAIT_EVENTS_EPISODE_SECONDS` | How long one episode lasts (default 20, 5 to 60). |
 
 Instructors can arm the same things at runtime from the `/instructor` page without touching `.env`.
 

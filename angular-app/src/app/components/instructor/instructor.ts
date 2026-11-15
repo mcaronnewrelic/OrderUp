@@ -1,5 +1,6 @@
-import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, DestroyRef, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { HeaderComponent } from '../header/header';
@@ -16,7 +17,7 @@ import { NrConfigService, ScenarioKind, ArmedScenario } from '../../nr-config';
  */
 @Component({
   selector: 'app-instructor',
-  imports: [RouterModule, FormsModule, HeaderComponent],
+  imports: [RouterModule, FormsModule, DatePipe, HeaderComponent],
   templateUrl: './instructor.html',
   changeDetection: ChangeDetectionStrategy.Eager
 })
@@ -27,6 +28,14 @@ export class InstructorComponent {
   readonly itemNames = signal<string[]>([]);
   readonly selectedKind = signal<ScenarioKind>('order-item');
   readonly selectedTarget = signal<string>('');
+  /** How often the wait-events schedule runs when armed, in seconds. */
+  readonly waitInterval = signal(180);
+  readonly waitIntervals = [
+    { seconds: 60, label: 'every minute' },
+    { seconds: 180, label: 'every 3 minutes' },
+    { seconds: 300, label: 'every 5 minutes' },
+    { seconds: 600, label: 'every 10 minutes' },
+  ];
 
   constructor(
     private http: HttpClient,
@@ -36,6 +45,10 @@ export class InstructorComponent {
     // arming a different scenario.
     this.nrConfig.refreshDemoState();
     this.nrConfig.refreshInvestigationState();
+    this.nrConfig.refreshWaitEventsState();
+    // An episode takes ~20 seconds, so keep the status current while the page is open.
+    const poll = setInterval(() => this.nrConfig.refreshWaitEventsState(), 5000);
+    inject(DestroyRef).onDestroy(() => clearInterval(poll));
     this.http.get<{ name: string; menuItems?: { name: string }[] }[]>('/api/restaurant').subscribe({
       next: restaurants => {
         this.restaurantNames.set(restaurants.map(r => r.name));
@@ -59,6 +72,21 @@ export class InstructorComponent {
   onKindChange(kind: ScenarioKind) {
     this.selectedKind.set(kind);
     this.selectedTarget.set(this.targetsForKind()[0] || '');
+  }
+
+  armWaitEvents() {
+    this.nrConfig.armWaitEvents(this.waitInterval());
+  }
+
+  /** "Right now" for the wait-events generator, in plain words. */
+  waitEventsSummary(): string {
+    const state = this.nrConfig.waitEventsState();
+    if (!state) return 'loading...';
+    if (!state.databaseAvailable) return 'unavailable: the server is running without a database';
+    const how = state.source === 'manual' ? 'instructor override' : state.source === 'env' ? 'server environment' : 'not armed';
+    if (!state.enabled) return `off (${how})`;
+    const every = state.intervalSeconds % 60 === 0 ? `${state.intervalSeconds / 60} min` : `${state.intervalSeconds} s`;
+    return `on, an episode every ${every} (${how})`;
   }
 
   armSelected() {

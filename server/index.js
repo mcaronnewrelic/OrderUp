@@ -20,6 +20,7 @@ var fs = require("fs");
 var MemoryStorage = require("./storage").Memory;
 const DatabaseService = require("./database");
 const DashboardLinks = require("./dashboard-links");
+const DemoWaitEvents = require("./demo-wait-events");
 const createSimulationRouter = require("./routes/simulation");
 const createRestaurantRouter = require("./routes/restaurant");
 const createOrderRouter = require("./routes/order");
@@ -42,6 +43,7 @@ exports.createApp = function (dependencies = {}) {
     dbService = new DatabaseService(),
     demoFailures = new DemoFailures(logger),
     demoInvestigations = new DemoInvestigations(logger),
+    demoWaitEvents = new DemoWaitEvents(logger, { newrelic }),
     dashboardLinks = new DashboardLinks({
       apiKey: environment.NEW_RELIC_API_KEY,
       account: environment.NEW_RELIC_ACCOUNT_ID || 1352811,
@@ -111,6 +113,7 @@ exports.createApp = function (dependencies = {}) {
       environment,
       demoFailures,
       demoInvestigations,
+      demoWaitEvents,
       dashboardLinks,
     }),
   );

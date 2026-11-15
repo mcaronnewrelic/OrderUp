@@ -193,6 +193,7 @@ function createCheckout(
     "./dashboard-links": require("./dashboard-links"),
     "./demo-failures": Demo,
     "./demo-investigations": Demo,
+    "./demo-wait-events": Demo,
     "./order-status-worker": class {
       constructor() {
         assert.fail("createApp must not construct a status worker");
@@ -262,6 +263,7 @@ function createCheckout(
     dbService: new Database(),
     demoFailures: new Demo(),
     demoInvestigations: new Demo(),
+    demoWaitEvents: new Demo(),
     useDatabase: databaseMode,
   };
   app = context.exports.createApp(appDependencies);
@@ -437,6 +439,9 @@ test("four routers contain every extracted route and HTTP method", () => {
       "get /demo/investigations",
       "post /demo/investigations",
       "delete /demo/investigations",
+      "get /demo/wait-events",
+      "post /demo/wait-events",
+      "delete /demo/wait-events",
     ],
     [
       "get /",

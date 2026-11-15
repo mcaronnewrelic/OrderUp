@@ -33,7 +33,14 @@ FROM postgres:16-alpine AS pg_wait_sampling
 
 ARG PG_WAIT_SAMPLING_VERSION=1.1.11
 
-RUN apk add --no-cache build-base curl linux-headers       openssl-dev krb5-dev icu-dev libxml2-dev lz4-dev zstd-dev zlib-dev  && mkdir /src  && curl -fsSL "https://github.com/postgrespro/pg_wait_sampling/archive/refs/tags/v${PG_WAIT_SAMPLING_VERSION}.tar.gz"       | tar -xz -C /src --strip-components=1  && cd /src  && make USE_PGXS=1 with_llvm=no  && make USE_PGXS=1 with_llvm=no install DESTDIR=/out
+RUN apk add --no-cache build-base curl linux-headers \
+      openssl-dev krb5-dev icu-dev libxml2-dev lz4-dev zstd-dev zlib-dev \
+ && mkdir /src \
+ && curl -fsSL "https://github.com/postgrespro/pg_wait_sampling/archive/refs/tags/v${PG_WAIT_SAMPLING_VERSION}.tar.gz" \
+      | tar -xz -C /src --strip-components=1 \
+ && cd /src \
+ && make USE_PGXS=1 with_llvm=no \
+ && make USE_PGXS=1 with_llvm=no install DESTDIR=/out
 
 # ---------------------------------------------------------------------------
 FROM postgres:16-alpine

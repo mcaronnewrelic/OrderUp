@@ -135,6 +135,7 @@ The browser agent's own `WebSocket` event arrives only when a connection closes.
 | `OrderStreamPush` | Custom event | One per status frame sent: `kind` (`snapshot` or `push`), `status`, `subscribers`, `msSinceSubscribe`. A stuck tracker is a snapshot with no push after it. |
 | `Custom/total`, `Custom/<restaurant>/total` | Metrics | Each accepted order's total. |
 | `Custom/OrderStream/OpenConnections` | Metric | How many WebSockets are open. |
+| `DemoWaitEpisode` | Custom event | One per database wait episode (when armed): `ok`, `durationMs`, `waiters`, `blockerPid`, `error`. Lines the episodes up against the `PostgresWaitEvents` and `PostgresBlockingSessions` they caused. |
 
 The OrderUp Overview dashboard's **Live order tracking** page charts the stream records, including a "Diagnosing a tracker" section.
 
@@ -152,6 +153,7 @@ All in `.env` (see `.env.example` and [Environment Variables](./setup/ENVIRONMEN
 | `DEMO_FAILING_ORDER_ITEM`       | Planned failure: orders containing this menu item fail.                            |
 | `DEMO_FAILURE_ROTATION`         | `off` stops the weekly automatic rotation of planned failures.                     |
 | `DEMO_DB_SLOW_ORDER_QUERY`, `DEMO_NGINX_502`, `DEMO_DB_LOCK`, `DEMO_DB_BIG_ORDERS`, `DEMO_ORDER_POISON` | Arm one of the instructor investigations from the environment instead of the `/instructor` page. |
+| `DEMO_DB_WAIT_EVENTS` (and `..._INTERVAL_SECONDS`, `..._EPISODE_SECONDS`) | Run scheduled database wait episodes, for the PostgreSQL wait-event and blocking-session charts. Not an investigation: it just keeps data flowing. Also on the `/instructor` page. See [New Relic Integrations](./NEW_RELIC_INTEGRATIONS_SETUP.md#generating-wait-events). |
 
 Restaurant and item values are slugs: lowercase, punctuation dropped, underscores for spaces (`Esther's German Saloon` becomes `esthers_german_saloon`). Leave a failure variable empty to turn it off. The container reads `.env` only when it is created, so after changing a value run:
 
