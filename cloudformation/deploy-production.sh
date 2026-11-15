@@ -131,10 +131,6 @@ deploy_production_stack() {
     # Optional ACM certificate ARN (6th arg or CERTIFICATE_ARN env). Empty
     # means HTTP only; see the CertificateArn parameter in the template.
     local certificate_arn="${6:-${CERTIFICATE_ARN:-}}"
-    # Install-time config version (7th arg or CONFIG_VERSION env). Bump
-    # it to force instance replacement on the next stack update; see the
-    # ConfigVersion parameter in the template.
-    local config_version="${7:-${CONFIG_VERSION:-1}}"
     
     if [ -z "$key_pair_name" ] || [ -z "$db_password" ]; then
         echo "❌ Missing required parameters"
@@ -181,7 +177,6 @@ deploy_production_stack() {
             DatabasePassword="$db_password" \
             NewRelicLicenseKey="$new_relic_license_key" \
             CertificateArn="$certificate_arn" \
-            ConfigVersion="$config_version" \
             S3BucketName="$bucket_name" \
         --capabilities CAPABILITY_NAMED_IAM \
         --tags \

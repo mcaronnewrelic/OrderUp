@@ -50,10 +50,6 @@ on:
         description: Type DELETE to confirm (delete-stack only)
         type: string
         default: ""
-      config_version:
-        description: Config version (stack only; bump to force instance replacement)
-        type: string
-        default: "1"
 
 permissions:
   contents: read
@@ -142,11 +138,10 @@ jobs:
           # empty leaves the site HTTP-only). See the template's
           # CertificateArn parameter.
           CERTIFICATE_ARN: ${{ vars.CERTIFICATE_ARN }}
-          CONFIG_VERSION: ${{ inputs.config_version || '1' }}
         run: |
           # The script reads the region from the AWS CLI configuration
           aws configure set region "$AWS_REGION"
-          bash cloudformation/deploy-production.sh "$ENVIRONMENT" "$INSTANCE_TYPE" "$KEY_NAME" "$DB_PASSWORD" "$NEW_RELIC_LICENSE_KEY" "$CERTIFICATE_ARN" "$CONFIG_VERSION"
+          bash cloudformation/deploy-production.sh "$ENVIRONMENT" "$INSTANCE_TYPE" "$KEY_NAME" "$DB_PASSWORD" "$NEW_RELIC_LICENSE_KEY" "$CERTIFICATE_ARN"
 
       - name: Summarize
         env:

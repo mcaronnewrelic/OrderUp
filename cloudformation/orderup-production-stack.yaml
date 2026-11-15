@@ -56,19 +56,6 @@ Parameters:
       before it is passed here; DNS validation records are handled outside
       this template.
 
-  ConfigVersion:
-    Type: String
-    Default: '1'
-    Description: >-
-      Install-time configuration version, stamped into the instance
-      UserData. The instance is configured only when it launches, so a
-      stack update that leaves the UserData unchanged leaves the
-      running instance (and its install-time config: New Relic infra
-      key and integrations, nginx and log configuration) untouched.
-      Bump this version to force instance replacement - and a fresh
-      install - on the next stack update, without touching the load
-      balancer or its DNS name.
-
 Mappings:
   RegionConfig:
     us-east-1:
@@ -242,8 +229,12 @@ Resources:
       Roles:
         - !Ref EC2Role
 
-  # EC2 Instance with AL2023 and Working Configuration
-  EC2Instance:
+  # EC2 Instance with AL2023 and Working Configuration.
+  # The install script runs only when an instance is first created, and a
+  # UserData change on AWS::EC2::Instance just stops and starts the same
+  # instance without re-running it. To force a fresh install, rename this
+  # logical ID (V2 -> V3) and the three !Ref EC2InstanceV2 uses below.
+  EC2InstanceV2:
     Type: AWS::EC2::Instance
     Properties:
       ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64}}'
@@ -256,7 +247,6 @@ Resources:
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
-          # ConfigVersion: ${ConfigVersion}
           # Log all output
           exec > >(tee /var/log/user-data.log) 2>&1
           
@@ -335,7 +325,7 @@ Resources:
       HealthyThresholdCount: 2
       UnhealthyThresholdCount: 3
       Targets:
-        - Id: !Ref EC2Instance
+        - Id: !Ref EC2InstanceV2
           Port: 3000
 
   # Target Group for Frontend
@@ -353,7 +343,7 @@ Resources:
       HealthyThresholdCount: 2
       UnhealthyThresholdCount: 3
       Targets:
-        - Id: !Ref EC2Instance
+        - Id: !Ref EC2InstanceV2
           Port: 8080
 
   # ALB Listener
@@ -458,7 +448,7 @@ Outputs:
 
   EC2InstanceId:
     Description: EC2 Instance ID
-    Value: !Ref EC2Instance
+    Value: !Ref EC2InstanceV2
     Export:
       Name: !Sub ${Environment}-orderup-instance-id
 
