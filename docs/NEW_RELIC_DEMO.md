@@ -1,6 +1,6 @@
 # New Relic Demo Features
 
-FoodMe is also a teaching app for New Relic. This page covers the parts built for that: the "Behind the scenes" callouts, the planned failures students can find, source maps, and the setup scripts. For installing the agents themselves, see [New Relic Infrastructure Setup](./NEW_RELIC_INFRA_SETUP.md) and [New Relic Integrations](./NEW_RELIC_INTEGRATIONS_SETUP.md).
+OrderUp is also a teaching app for New Relic. This page covers the parts built for that: the "Behind the scenes" callouts, the planned failures students can find, source maps, and the setup scripts. For installing the agents themselves, see [New Relic Infrastructure Setup](./NEW_RELIC_INFRA_SETUP.md) and [New Relic Integrations](./NEW_RELIC_INTEGRATIONS_SETUP.md).
 
 ## Behind the scenes callouts
 
@@ -8,15 +8,19 @@ Green dashed boxes on the pages show the New Relic data that page creates, with 
 
 | Page         | What the callout shows                                                                                          |
 | ------------ | --------------------------------------------------------------------------------------------------------------- |
-| Customer     | `enduser.id`, set by `setUserId()`                                                                              |
-| Restaurants  | The `GET /api/restaurant` transaction                                                                           |
+| Customer     | `enduser.id` and `demoCode`, set before Angular starts and by `setUserId()`                                      |
+| Restaurants  | The `GET /api/restaurant` transaction, and the filter clicks the server never sees (`restaurant_filter_applied`) |
 | Menu         | Each menu request, and the same requests by status code                                                         |
-| Checkout     | Recent `POST /api/order` transactions                                                                           |
-| Thank you    | The order Transaction, `ItemsOrdered` detail events, an `orderId` JOIN, and global/per-restaurant total metrics |
-| Orders       | Order lookups, without any email address                                                                        |
+| Checkout     | Recent `POST /api/order` transactions, and the ordering funnel built from the browser's PageActions            |
+| Thank you    | The order Transaction, `ItemsOrdered` detail events, an `orderId` JOIN, global/per-restaurant total metrics, and the tracker's WebSocket |
+| Orders       | Order lookups without any email address, and what the live tracker saw (`order_tracker_status` and `order_tracker_connection`) |
 | How It Works | The simulated error, its page action, and its round-trip time                                                   |
 
-**Show or hide them** with "Behind the scenes" in the header. The choice is saved in the browser. They start hidden; change `CALLOUTS_SHOWN_BY_DEFAULT` in `angular-app/src/app/nr-config.ts` to start shown.
+The **Missions** page shows each visitor's progress through the five missions, and the **Investigations** page holds the longer problems an instructor can arm (see below). The `/instructor` page, which is not linked from the menu, arms planned failures and investigations for everyone at once.
+
+On the Investigations page, the investigations that are live come first (the armed one, plus any that are always live). Each live checkpoint's evidence query and question are part of "Behind the scenes": with it off, the checkpoint shows a notice with a button that switches it on, because the answer is what opens the next checkpoint.
+
+**Show or hide them** with "Behind the scenes" in the header, or add `?callouts=1` (or `0`) to any URL for one visit. The choice is saved in the browser. They start hidden; change `CALLOUTS_SHOWN_BY_DEFAULT` in `angular-app/src/app/nr-config.ts` to start shown. With them on, the header also shows a short note if the browser cannot reach New Relic's agent hosts (`js-agent.newrelic.com` or `bam.nr-data.net`), which is the usual reason that browser queries come back empty on a machine behind an ad blocker or DNS filter.
 
 **Add one** to any page:
 
@@ -94,9 +98,50 @@ historical data remains in New Relic; deploy the updated dashboard definition to
 change its queries. No live dashboard or account configuration is changed by a
 local source edit.
 
+## Browser events
+
+The browser agent records page views, Ajax requests, errors and interactions on its own. The app adds events for the parts of the journey the agent cannot see. They are sent with `addPageAction`, carry the visitor's `demoCode`, and are queryable as `PageAction`.
+
+**The ordering funnel** (`FunnelService`; every event has `funnel = 'ordering'`):
+
+| `actionName` | Sent when | Attributes |
+|---|---|---|
+| `restaurants_viewed` (step 1) | The restaurant list loads | `resultCount` |
+| `menu_viewed` (step 2) | A menu loads | `restaurant`, `cuisine`, `itemCount` |
+| `add_to_cart` (step 3) | An item is added | `restaurant`, `item`, `price`, `cartItems`, `cartTotal` |
+| `checkout_started` (step 4) | The checkout page opens with items in the cart | `restaurant`, `itemCount`, `cartTotal` |
+| `order_placed` (step 5) | The order is accepted | `restaurant`, `itemCount`, `orderTotal`, `orderId`, `requestId` |
+| `restaurant_filter_applied` | A filter changes (client-side only) | `filterType`, `filterValue`, `selected`, `resultCount` |
+| `cart_item_removed` | An item is removed at checkout | `restaurant`, `item`, `cartItems` |
+
+The funnel query on the Checkout page uses NRQL's `funnel()` over these step events. The five-step progress bar the visitor sees mirrors the same journey.
+
+**The live tracker** (`OrderStatusService`; every event has `feature = 'order_tracker'`):
+
+| `actionName` | Attributes |
+|---|---|
+| `order_tracker_status` | `status`, `previousStatus`, `transport` (`websocket` or `rest`), `msSinceTracked` |
+| `order_tracker_connection` | `event` (`open`, `closed`, `reconnect`, `polling_fallback`), and `closeCode`, `attempt`, `delayMs`, `reason`, `lastStatus` where they apply |
+
+The browser agent's own `WebSocket` event arrives only when a connection closes. These explain what happened while it was open: whether a status came from the socket or from a poll, and why the tracker fell back to polling.
+
+## Server events and metrics
+
+| Name | Kind | What it holds |
+|---|---|---|
+| `ItemsOrdered` | Custom event | One per cart line: `orderId`, `itemName`, `itemCount`, `unitPrice`, `itemTotal`, `demoCode`. |
+| `OrderPipelineSample` | Custom event | One per worker pass: orders by stage, how many advanced, the age of the oldest unfinished order. |
+| `OrderStreamSample` | Custom event | One per WebSocket connection, at close: `demoCode`, `orderId`, `firstStatus` and `lastStatus`, `outcome` (`saw_final_status`, `left_before_final_status`, `never_subscribed`), `closeCode` and `closeCategory`, message counts, and where the time went (`subscribeDelayMs`, `snapshotLookupMs`, `msToFirstPush`, `idleBeforeCloseMs`). The `OrderStatusStream/connection` background transaction carries the same attributes. |
+| `OrderStreamPush` | Custom event | One per status frame sent: `kind` (`snapshot` or `push`), `status`, `subscribers`, `msSinceSubscribe`. A stuck tracker is a snapshot with no push after it. |
+| `Custom/total`, `Custom/<restaurant>/total` | Metrics | Each accepted order's total. |
+| `Custom/OrderStream/OpenConnections` | Metric | How many WebSockets are open. |
+| `DemoWaitEpisode` | Custom event | One per database wait episode (when armed): `ok`, `durationMs`, `waiters`, `blockerPid`, `error`. Lines the episodes up against the `PostgresWaitEvents` and `PostgresBlockingSessions` they caused. |
+
+The OrderUp Overview dashboard's **Live order tracking** page charts the stream records, including a "Diagnosing a tracker" section.
+
 ## Settings
 
-All in `.env` (see `.env.example`).
+All in `.env` (see `.env.example` and [Environment Variables](./setup/ENVIRONMENT_VARIABLES.md)).
 
 | Variable                        | Needed for                                                                         |
 | ------------------------------- | ---------------------------------------------------------------------------------- |
@@ -106,14 +151,19 @@ All in `.env` (see `.env.example`).
 | `DEMO_FAILING_RESTAURANT`       | Planned failure: this restaurant's menu fails.                                     |
 | `DEMO_FAILING_ORDER_RESTAURANT` | Planned failure: orders from this restaurant fail.                                 |
 | `DEMO_FAILING_ORDER_ITEM`       | Planned failure: orders containing this menu item fail.                            |
+| `DEMO_FAILURE_ROTATION`         | `off` stops the weekly automatic rotation of planned failures.                     |
+| `DEMO_DB_SLOW_ORDER_QUERY`, `DEMO_NGINX_502`, `DEMO_DB_LOCK`, `DEMO_DB_BIG_ORDERS`, `DEMO_ORDER_POISON` | Arm one of the instructor investigations from the environment instead of the `/instructor` page. |
+| `DEMO_DB_WAIT_EVENTS` (and `..._INTERVAL_SECONDS`, `..._EPISODE_SECONDS`) | Run scheduled database wait episodes, for the PostgreSQL wait-event and blocking-session charts. Not an investigation: it just keeps data flowing. Also on the `/instructor` page. See [New Relic Integrations](./NEW_RELIC_INTEGRATIONS_SETUP.md#generating-wait-events). |
 
 Restaurant and item values are slugs: lowercase, punctuation dropped, underscores for spaces (`Esther's German Saloon` becomes `esthers_german_saloon`). Leave a failure variable empty to turn it off. The container reads `.env` only when it is created, so after changing a value run:
 
 ```bash
-docker-compose -f docker/docker-compose.dev-simple.yml up -d --build --force-recreate foodme
+docker-compose --env-file .env -f docker/docker-compose.dev-simple.yml up -d --build --force-recreate orderup
 ```
 
 ## Planned failures
+
+One failure is armed at almost all times. Which one is decided in this order: the `DEMO_FAILING_*` variables, then a manual choice on the `/instructor` page, then a deterministic weekly rotation over the restaurants and items (switch it off with `DEMO_FAILURE_ROTATION=off`). The header banner always names what is armed.
 
 | Switch                          | What visitors see                                      | What students can find                                                                                               |
 | ------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |

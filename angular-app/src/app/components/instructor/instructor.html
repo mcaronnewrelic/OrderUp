@@ -35,6 +35,53 @@
     </div>
   </div>
 
+  <h5 class="text-muted mt-5 mb-2"><i class="fas fa-hourglass-half me-2"></i>Database wait events</h5>
+  <div class="card mb-3" id="wait-events">
+    <div class="card-body py-3">
+      <p class="small text-muted mb-2">
+        This app's own queries never wait on anything, so New Relic's database wait-event and
+        blocking-session charts stay empty. Armed, the server runs a short <em>episode</em> on a
+        scratch table of its own: one session holds a row lock while a few others wait for it,
+        and one sleeps. Visitors are never affected — it never touches orders or customers.
+        Episodes show up as <code>PostgresWaitEvents</code> and <code>PostgresBlockingSessions</code>
+        (wait events need the <code>pg_wait_sampling</code> extension).
+      </p>
+      @if (nrConfig.waitEventsState(); as waits) {
+        <p class="mb-2">
+          <strong>Right now:</strong> {{ waitEventsSummary() }}
+          @if (waits.running) {
+            <span class="badge bg-warning text-dark ms-1">episode running</span>
+          } @else if (waits.enabled && waits.nextEpisodeAt) {
+            <span class="text-muted">· next episode {{ waits.nextEpisodeAt | date: 'mediumTime' }}</span>
+          }
+        </p>
+        @if (waits.lastEpisode; as last) {
+          <p class="small mb-2" [class.text-danger]="!last.ok" [class.text-muted]="last.ok">
+            Last episode ({{ waits.episodes }} so far): {{ last.finishedAt | date: 'mediumTime' }},
+            @if (last.ok) { {{ (last.durationMs / 1000).toFixed(0) }} s, {{ last.waiters }} waiting sessions }
+            @else { did not run: {{ last.error }} }
+          </p>
+        }
+      }
+      <div class="row g-2 align-items-end">
+        <div class="col-auto">
+          <label class="form-label small mb-1" for="waitInterval">Run an episode</label>
+          <select id="waitInterval" class="form-select form-select-sm" [ngModel]="waitInterval()" (ngModelChange)="waitInterval.set(+$event)">
+            @for (option of waitIntervals; track option.seconds) {
+              <option [ngValue]="option.seconds">{{ option.label }}</option>
+            }
+          </select>
+        </div>
+        <div class="col-auto">
+          <button type="button" class="btn btn-sm btn-warning" id="arm-wait-events" (click)="armWaitEvents()">Arm</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="run-wait-events" (click)="nrConfig.runWaitEventsNow()">Run one episode now</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="disarm-wait-events" (click)="nrConfig.disarmWaitEvents()">Disarm</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="clear-wait-events" (click)="nrConfig.clearWaitEventsOverride()">Clear override</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <h5 class="text-muted mt-5 mb-2"><i class="fas fa-clapperboard me-2"></i>Demo failure scenario</h5>
   <p class="text-muted small mb-3">
     One thing in this demo is always failing on purpose, so there is an error to hunt.

@@ -70,7 +70,7 @@ curl -s http://YOUR_ALB_DNS:3000/api/restaurant
 5. **Download New Code**: Downloads and extracts new packages from S3
 6. **Install Dependencies**: Runs `npm install` if needed
 7. **Build Frontend**: Compiles Angular application
-8. **Restart Services**: Restarts backend service and nginx
+8. **Restart Services**: Restarts the backend (PM2 process `orderup-backend`) and reloads nginx
 
 ### Architecture
 
@@ -83,17 +83,18 @@ Developer Machine → S3 Bucket → EC2 Instance
 ### File Locations on EC2
 
 ```
-/opt/foodme/
-├── backend/              # Node.js application
+/opt/orderup/
+├── backend/              # Node.js application (PM2 runs it as orderup-backend)
 │   ├── *.js             # Server files
 │   ├── package.json     # Dependencies
-│   ├── .env            # Environment config (preserved)
+│   ├── .env            # Environment config (preserved between deployments)
 │   └── node_modules/   # Dependencies
-├── angular-app/         # Angular source
-│   ├── src/            # Angular source files
-│   ├── dist/           # Built application
+├── angular-app/         # Angular source, built on the instance
 │   └── node_modules/   # Dependencies
-└── browser/            # Symlink to dist/browser
+├── dist/                # The built website (dist/browser), served by the Node app
+├── logs/                # orderup-backend-{out,error,combined}.log
+├── database/            # Database initialization scripts
+└── backend-backup.tgz   # Backend as it was before the last deployment
 ```
 
 ## Command Options
@@ -161,7 +162,7 @@ Developer Machine → S3 Bucket → EC2 Instance
 ### EC2 Requirements
 - **SSM Agent** installed and running
 - **Instance role** with S3 access
-- **Systemd services** configured for backend
+- **PM2** running the backend as `orderup-backend` under `ec2-user` (there is no systemd unit for it)
 
 ## Troubleshooting
 
@@ -189,17 +190,20 @@ aws sts get-caller-identity
 ```bash
 # Check build logs on EC2
 ssh -i your-key.pem ec2-user@your-instance
-sudo journalctl -u foodme-backend -n 50
+sudo -u ec2-user pm2 logs orderup-backend --nostream --lines 50
 ```
 
 #### 4. **Service Won't Start**
 ```bash
-# Check service status
-systemctl status foodme-backend nginx
+# Check the backend and nginx
+sudo -u ec2-user pm2 describe orderup-backend
+systemctl status nginx
 
-# View service logs
-journalctl -u foodme-backend --no-pager -n 20
+# View the backend's logs
+sudo -u ec2-user pm2 logs orderup-backend --nostream --lines 20
 ```
+
+`./deploy-code.sh -e staging --diagnose` prints the same information (PM2 state, logs, environment keys) without changing anything.
 
 ### Error Recovery
 
@@ -208,17 +212,18 @@ journalctl -u foodme-backend --no-pager -n 20
 # SSH to EC2 instance
 ssh -i your-key.pem ec2-user@your-instance
 
-# Restore backend backup
-cd /opt/foodme/backend
-sudo systemctl stop foodme-backend
-cp backup/* .
-sudo systemctl start foodme-backend
+# Restore the backend from the backup made before the last deployment
+cd /opt/orderup/backend
+sudo -u ec2-user pm2 stop orderup-backend
+sudo -u ec2-user tar -xzf /opt/orderup/backend-backup.tgz -C /opt/orderup/backend
+sudo -u ec2-user pm2 start orderup-backend
 
-# Restore frontend backup
-cd /opt/foodme
+# Restore the Angular source (the deployment keeps the previous copy)
+cd /opt/orderup
 rm -rf angular-app
 mv angular-app-backup angular-app
-sudo systemctl restart nginx
+# ...then rebuild it, as a normal deployment does, so dist/ matches
+sudo systemctl reload nginx
 ```
 
 #### Force Redeploy
@@ -283,13 +288,13 @@ curl -f http://your-alb-dns/
 curl -f http://your-alb-dns:3000/api/restaurant
 
 # Service status
-ssh ec2-user@your-instance 'systemctl is-active foodme-backend nginx'
+ssh ec2-user@your-instance 'sudo -u ec2-user pm2 describe orderup-backend | grep status; systemctl is-active nginx'
 ```
 
 ### Log Monitoring
 ```bash
 # Real-time logs
-ssh ec2-user@your-instance 'sudo journalctl -u foodme-backend -f'
+ssh ec2-user@your-instance 'sudo -u ec2-user pm2 logs orderup-backend'
 
 # Error logs
 ssh ec2-user@your-instance 'sudo tail -f /var/log/nginx/error.log'
@@ -341,4 +346,4 @@ The scripts can be integrated into your CI/CD pipeline:
     AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 ```
 
-This deployment system provides a fast, reliable way to update your FoodMe application code while keeping your AWS infrastructure stable and unchanged!
+This deployment system provides a fast, reliable way to update your OrderUp application code while keeping your AWS infrastructure stable and unchanged!

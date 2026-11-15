@@ -1,0 +1,20 @@
+# nginx integration for the local full Docker setup (docker/docker-compose.arm64.yml).
+# Mounted into the infrastructure container at /etc/newrelic-infra/integrations.d/.
+# The agent shares the compose network, so it reaches nginx by its service name;
+# nginx allows private ranges on /nginx_status (nginx-config/orderup.dev.conf).
+integrations:
+  - name: nri-nginx
+    env:
+      STATUS_URL: http://nginx/nginx_status
+      METRICS: true
+      # Inventory would read /etc/nginx/nginx.conf from this container, and nginx runs in another one.
+      INVENTORY: false
+      # nginx is another container, not this host: report it as its own entity.
+      REMOTE_MONITORING: true
+    interval: 30s
+    labels:
+      env: local-docker
+      role: web-server
+      service: nginx
+      application: orderup
+      deployment: docker

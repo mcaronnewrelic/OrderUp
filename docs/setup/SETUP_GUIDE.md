@@ -1,6 +1,8 @@
-# FoodMe Development Environment Setup Guide
+# HTTPS Development Environment Setup Guide
 
-This guide explains how to set up a secure HTTPS development environment for the FoodMe application using the automated setup script.
+This guide explains how to set up an optional, secure HTTPS development environment for OrderUp using the automated setup script.
+
+> **Archived script.** `setup.sh` is no longer in the repository root: it is in [`scripts/archive/setup.sh`](../../scripts/archive/setup.sh) and is not maintained. Copy it to where you want to run it (or call it by that path). To run the app locally without HTTPS, you do not need it: see the [Docker Development Guide](../../DOCKER_DEVELOPMENT_GUIDE.md).
 
 ## Overview
 
@@ -30,41 +32,41 @@ Before running the setup script, ensure you have:
 
 1. **Make the script executable**:
    ```bash
-   chmod +x setup.sh
+   chmod +x scripts/archive/setup.sh
    ```
 
 2. **Run the setup**:
    ```bash
-   ./setup.sh foodme.local foodme 3000
+   ./scripts/archive/setup.sh orderup.local orderup 3000
    ```
 
-3. **Start your FoodMe application** on port 3000
+3. **Start your OrderUp application** on port 3000
 
-4. **Visit** https://foodme.local in your browser
+4. **Visit** https://orderup.local in your browser
 
 ## Script Usage
 
 ```bash
-./setup.sh <domain> <app_name> <port>
+./scripts/archive/setup.sh <domain> <app_name> <port>
 ```
 
 ### Parameters
 
-- **`domain`**: The local domain name (e.g., `foodme.local`, `myapp.dev`)
-- **`app_name`**: Application name for Docker containers (e.g., `foodme`)
+- **`domain`**: The local domain name (e.g., `orderup.local`, `myapp.dev`)
+- **`app_name`**: Application name for Docker containers (e.g., `orderup`)
 - **`port`**: Port where your application runs (e.g., `3000`)
 
 ### Examples
 
 ```bash
-# Standard FoodMe setup
-./setup.sh foodme.local foodme 3000
+# Standard OrderUp setup
+./scripts/archive/setup.sh orderup.local orderup 3000
 
 # Custom domain and port
-./setup.sh myapp.dev myapp 8080
+./scripts/archive/setup.sh myapp.dev myapp 8080
 
 # Development environment
-./setup.sh dev.foodme.local foodme-dev 4000
+./scripts/archive/setup.sh dev.orderup.local orderup-dev 4000
 ```
 
 ## What the Script Does
@@ -92,10 +94,10 @@ After running the script, you'll find these files in the `.setup/` directory:
 ├── mkcert                           # mkcert binary
 ├── docker-compose.yml              # Container orchestration
 ├── certs/
-│   ├── foodme.local.crt            # SSL certificate
-│   └── foodme.local.key            # SSL private key
+│   ├── orderup.local.crt            # SSL certificate
+│   └── orderup.local.key            # SSL private key
 └── nginx/
-    └── foodme.local.conf            # Nginx configuration
+    └── orderup.local.conf            # Nginx configuration
 ```
 
 ## Configuration Details
@@ -172,17 +174,17 @@ cd .setup
 ./mkcert -install
 
 # Regenerate certificates
-./mkcert -key-file certs/foodme.local.key -cert-file certs/foodme.local.crt foodme.local "*.foodme.local"
+./mkcert -key-file certs/orderup.local.key -cert-file certs/orderup.local.crt orderup.local "*.orderup.local"
 ```
 
 #### Domain Resolution Issues
 If the domain doesn't resolve:
 ```bash
 # Check hosts file entry
-grep foodme.local /etc/hosts
+grep orderup.local /etc/hosts
 
 # Manually add if missing
-echo "127.0.0.1 foodme.local" | sudo tee -a /etc/hosts
+echo "127.0.0.1 orderup.local" | sudo tee -a /etc/hosts
 ```
 
 #### Container Issues
@@ -225,16 +227,16 @@ mkcert -uninstall
 You can run the script multiple times with different domains:
 
 ```bash
-./setup.sh foodme.local foodme 3000
-./setup.sh api.foodme.local foodme-api 3001
-./setup.sh admin.foodme.local foodme-admin 3002
+./scripts/archive/setup.sh orderup.local orderup 3000
+./scripts/archive/setup.sh api.orderup.local orderup-api 3001
+./scripts/archive/setup.sh admin.orderup.local orderup-admin 3002
 ```
 
 ### Custom Nginx Configuration
 
 To customize the nginx configuration:
 
-1. Edit `.setup/nginx/foodme.local.conf`
+1. Edit `.setup/nginx/orderup.local.conf`
 2. Restart nginx: `cd .setup && docker compose restart nginx`
 
 ### Environment Variables
@@ -247,7 +249,7 @@ The setup script respects these environment variables:
 
 Example:
 ```bash
-SETUP_PROCESS_DIR=".ssl-setup" ./setup.sh foodme.local foodme 3000
+SETUP_PROCESS_DIR=".ssl-setup" ./scripts/archive/setup.sh orderup.local orderup 3000
 ```
 
 ## Security Considerations
@@ -258,13 +260,13 @@ SETUP_PROCESS_DIR=".ssl-setup" ./setup.sh foodme.local foodme 3000
 - **Network Isolation**: Uses Docker bridge networks for isolation
 - **File Permissions**: Certificates have appropriate read-only permissions
 
-## Integration with FoodMe
+## Integration with OrderUp
 
-The setup script is designed to work seamlessly with the FoodMe application:
+The setup script is designed to work seamlessly with the OrderUp application:
 
 1. **Run the setup script** first to create the HTTPS environment
-2. **Start FoodMe** with `npm run dev` (the app will run on port 3000)
-3. **Access the app** at https://foodme.local
+2. **Start OrderUp** with `npm run dev` (the app will run on port 3000)
+3. **Access the app** at https://orderup.local
 4. **Development workflow** continues as normal with HTTPS
 
-The nginx proxy will forward all requests to your FoodMe application while providing SSL termination and security headers.
+The nginx proxy will forward all requests to your OrderUp application while providing SSL termination and security headers.

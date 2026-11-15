@@ -13,6 +13,7 @@ const MemoryStorage = require("./storage").Memory;
 const DatabaseService = require("./database");
 const DemoFailures = require("./demo-failures");
 const DemoInvestigations = require("./demo-investigations");
+const DemoWaitEvents = require("./demo-wait-events");
 const OrderStatusWorker = require("./order-status-worker");
 const OrderStatusStream = require("./order-status-stream");
 
@@ -22,6 +23,8 @@ function start(PORT, STATIC_DIR, DATA_FILE) {
   const dbService = new DatabaseService();
   const demoFailures = new DemoFailures(logger);
   const demoInvestigations = new DemoInvestigations(logger);
+  // Scheduled database waits for the New Relic PostgreSQL integration; runs only when armed and a database is in use.
+  const demoWaitEvents = new DemoWaitEvents(logger, { isAvailable: () => useDatabase });
   const orderStatusWorker = new OrderStatusWorker(logger);
   let useDatabase =
     process.env.NODE_ENV === "production" ||
@@ -105,12 +108,14 @@ function start(PORT, STATIC_DIR, DATA_FILE) {
       dbService,
       demoFailures,
       demoInvestigations,
+      demoWaitEvents,
       useDatabase,
       staticDir: STATIC_DIR,
     });
     const server = app.listen(PORT, function () {
       // Orders advance through their lifecycle only in database mode.
       if (useDatabase) orderStatusWorker.start();
+      demoWaitEvents.sync();
       logger.info(
         {
           port: PORT,
@@ -133,6 +138,7 @@ function start(PORT, STATIC_DIR, DATA_FILE) {
   // Handle graceful shutdown
   process.on("SIGTERM", async () => {
     logger.info("🛑 Received SIGTERM, shutting down gracefully...");
+    demoWaitEvents.stop();
     if (dbService) {
       await dbService.close();
     }
@@ -141,6 +147,7 @@ function start(PORT, STATIC_DIR, DATA_FILE) {
 
   process.on("SIGINT", async () => {
     logger.info("🛑 Received SIGINT, shutting down gracefully...");
+    demoWaitEvents.stop();
     if (dbService) {
       await dbService.close();
     }

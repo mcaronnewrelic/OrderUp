@@ -1,150 +1,47 @@
-# OrderUp CloudFormation Deployment - File Organization Guide
+# OrderUp CloudFormation Deployment
 
-## 🎯 **RECOMMENDED FILES TO USE**
+How OrderUp is deployed to AWS, and what each file in this folder is for.
 
-### **Production Deployment (RECOMMENDED)**
-- **Template**: `orderup-production-stack.yaml` ✅ **USE THIS**
-- **Script**: `deploy-production.sh` ✅ **USE THIS**
-- **Purpose**: Production-ready template with all troubleshooting fixes incorporated
+## Use these
 
-### **Supporting Files (KEEP)**
-- `install-orderup.sh` ✅ **KEEP** - Enhanced installation script with monitoring
-- `validate-monitoring.sh` ✅ **KEEP** - Validates PostgreSQL and Nginx monitoring
-- `diagnose-postgresql-monitoring.sh` ✅ **KEEP** - PostgreSQL troubleshooting
-- `diagnose-nginx-monitoring.sh` ✅ **KEEP** - Nginx troubleshooting
+| File | What it is |
+|---|---|
+| `orderup-production-stack.yaml` | **The template.** VPC, subnets, security group, Application Load Balancer, the EC2 instance and its IAM role. It is the only template the GitHub workflow deploys. |
+| `deploy-production.sh` | **Creates or updates the stack** from that template. The workflow's `stack` action runs it. |
+| `deploy-code.sh` | **Updates the code on the running instance** through AWS Systems Manager (no SSH key). The workflow's `code` action runs it. It restarts the backend with PM2. |
+| `install-orderup.sh` | **Runs on the instance at first boot.** Installs Node 24, nginx, PostgreSQL 16, PM2 and the New Relic infrastructure agent with the nginx and PostgreSQL integrations; builds the app and starts it. |
 
----
+Everything else here supports those four.
 
-## 📁 **FILE ANALYSIS & RECOMMENDATIONS**
+## Deploying
 
-### **CloudFormation Templates**
+**From GitHub (recommended).** Run the **deploy-cloudformation** workflow from the Actions tab: `stack` to create or update the infrastructure, `code` to update the running instance, `delete-stack` to remove it. A push to `main` that changes `server/` or `angular-app/` deploys the code to staging by itself. The secrets and variables it needs are listed in the [Deployment Guide](../docs/deployment/DEPLOYMENT_GUIDE.md#deploying-with-github-actions).
 
-| File                           | Status                | Purpose                                      | Recommendation |
-| ------------------------------ | --------------------- | -------------------------------------------- | -------------- |
-| `orderup-production-stack.yaml` | ✅ **NEW/RECOMMENDED** | Production-ready with all fixes              | **USE THIS**   |
-| `orderup-stack.yaml`            | ⚠️ Legacy              | Original full stack (has load testing)       | Archive/backup |
-| `orderup-monitoring-stack.yaml` | ⚠️ Legacy              | Monitoring-focused variant                   | Archive/backup |
-| `monitoring-stack.yaml`        | ⚠️ Legacy              | Simplified variant (used in troubleshooting) | Archive/backup |
+**From your machine.**
 
-### **Deployment Scripts**
-
-| File                         | Status                | Template Used                  | Recommendation |
-| ---------------------------- | --------------------- | ------------------------------ | -------------- |
-| `deploy-production.sh`       | ✅ **NEW/RECOMMENDED** | `orderup-production-stack.yaml` | **USE THIS**   |
-| `deploy-stack.sh`            | ⚠️ Legacy              | `orderup-stack.yaml`            | Archive/backup |
-| `deploy-simple.sh`           | ⚠️ Troubleshooting     | `monitoring-stack.yaml`        | Archive/backup |
-| `deploy-monitoring-stack.sh` | ⚠️ Legacy              | `orderup-monitoring-stack.yaml` | Archive/backup |
-| `deploy-code.sh`             | ❌ Incomplete          | N/A - Code only                | **DELETE**     |
-
-### **Utility Scripts**
-
-| File                                | Status      | Purpose                    | Recommendation |
-| ----------------------------------- | ----------- | -------------------------- | -------------- |
-| `install-orderup.sh`                 | ✅ Essential | Main installation script   | **KEEP**       |
-| `validate-monitoring.sh`            | ✅ Useful    | Monitoring validation      | **KEEP**       |
-| `diagnose-postgresql-monitoring.sh` | ✅ Useful    | PostgreSQL troubleshooting | **KEEP**       |
-| `diagnose-nginx-monitoring.sh`      | ✅ Useful    | Nginx troubleshooting      | **KEEP**       |
-| `validate-deployment.sh`            | ⚠️ Legacy    | General validation         | Optional       |
-| `build-loadtest-image.sh`           | ❌ Unused    | Load testing (not needed)  | **DELETE**     |
-| `manage-loadtest.sh`                | ❌ Unused    | Load testing (not needed)  | **DELETE**     |
-
----
-
-## 🚀 **HOW TO DEPLOY**
-
-### **From GitHub (Recommended)**
-The **deploy-cloudformation** workflow runs these same scripts. Run it from the Actions tab with `stack` to create or update the stack, `code` to update the running instance, or `delete-stack` to remove it. A push to `main` that changes `server/` or `angular-app/` deploys the code to staging by itself. The secrets it needs are listed in [the deployment guide](../docs/deployment/DEPLOYMENT_GUIDE.md#deploying-with-github-actions).
-
-`deploy-code.sh` updates the code through AWS Systems Manager, so no SSH key is needed. It restarts the backend with PM2, which is how the instance runs it.
-
-### **Quick Deployment from your machine**
 ```bash
 cd cloudformation
-./deploy-production.sh staging t3.medium orderup-keypair mysecurepasswordexample
+./deploy-production.sh staging t3.medium my-keypair 'a-strong-db-password'   # create or update the stack
+./deploy-code.sh -e staging                                                  # update the code only
 ```
 
-### **What This Includes**
-- ✅ Amazon Linux 2023 (AL2023)
-- ✅ PostgreSQL 16 with monitoring extensions
-- ✅ Nginx on port 8080 with proper Angular routing
-- ✅ Node.js backend with PM2 process management
-- ✅ Application Load Balancer with API routing
-- ✅ New Relic Infrastructure monitoring
-- ✅ All troubleshooting fixes from manual testing
+`deploy-production.sh` takes the environment, instance type, key pair name and database password, and an optional fifth argument for the New Relic license key (otherwise it reads `NEW_RELIC_LICENSE_KEY` from `.env`). It names the stack `orderup-<environment>`. The stack's `AllowedSshCidr` parameter limits SSH to one address and defaults to a fixed value; the scripts do not pass it, so change the default in the template or pass the parameter yourself. See [Security](../docs/SECURITY.md), finding 12.
 
----
+`deploy-code.sh` options: `--frontend-only`, `--backend-only`, `--no-restart`, `--logs` and `--diagnose` (read-only checks). See the [Code Deployment Guide](../docs/deployment/CODE_DEPLOYMENT_GUIDE.md).
 
-## 🧹 **CLEANUP RECOMMENDATIONS**
+## Checking and diagnosing
 
-### **Files to Archive/Move to `archive/` folder**
-```bash
-mkdir -p archive
-mv orderup-stack.yaml archive/
-mv orderup-monitoring-stack.yaml archive/
-mv monitoring-stack.yaml archive/
-mv deploy-stack.sh archive/
-mv deploy-simple.sh archive/
-mv deploy-monitoring-stack.sh archive/
-mv validate-deployment.sh archive/
-```
+| Script | Use it to |
+|---|---|
+| `validate-deployment.sh -e <env>` | Check the stack, instance, SSM connectivity, endpoints and load balancer targets before deploying code. |
+| `validate-monitoring.sh -e <env>` | Check that the PostgreSQL and nginx New Relic integrations are working. |
+| `diagnose-postgresql-monitoring.sh`, `diagnose-nginx-monitoring.sh` | Dig into why one of those integrations is not reporting. |
+| `test-postgres-monitoring.sh` | A quick PostgreSQL monitoring test. |
 
-### **Files to Delete**
-```bash
-rm deploy-code.sh
-rm build-loadtest-image.sh
-rm manage-loadtest.sh
-```
+## Older files
 
----
+The earlier template, deploy scripts and load test scripts are in [archive/](./archive/README.md): `foodme-stack.yaml` (the original template, with the ECS load test), `deploy-stack.sh`, `deploy-simple.sh`, `build-loadtest-image.sh`, `manage-loadtest.sh`, and the older `validate-monitoring-new.sh` and `validate-monitoring-old.sh`. Nothing in the workflow uses them.
 
-## 🔧 **KEY FIXES INCORPORATED**
+## What the instance looks like
 
-### **From Manual Troubleshooting**
-1. **Angular Build Structure**: Fixed browser/ subdirectory handling
-2. **Nginx Configuration**: Proper port 8080 setup with Angular routing
-3. **API Proxy**: Correct /api/* and /health routing to backend
-4. **PM2 Management**: Automatic backend process management
-5. **Environment Variables**: Proper passing to user data script
-6. **Error Handling**: Enhanced logging and error recovery
-7. **New Relic Setup**: Automated configuration with license key
-
-### **User Data Script Improvements**
-- Added comprehensive logging to `/var/log/user-data.log`
-- Fixed Angular browser files copying
-- Proper Nginx configuration generation
-- PM2 backend startup verification
-- New Relic configuration automation
-
----
-
-## 📊 **VALIDATION & TESTING**
-
-### **After Deployment**
-```bash
-# Validate monitoring setup
-./validate-monitoring.sh -e staging
-
-# Test endpoints
-curl http://YOUR-ALB-DNS/
-curl http://YOUR-ALB-DNS/health
-curl http://YOUR-ALB-DNS/api/
-```
-
-### **Expected Results**
-- Frontend: HTTP 200 (Angular app loads)
-- Health Check: HTTP 200 (Backend healthy)
-- API: HTTP 200 or appropriate API response
-
----
-
-## 🎯 **SUMMARY**
-
-**Use these files for production deployments:**
-- `orderup-production-stack.yaml` (CloudFormation template)
-- `deploy-production.sh` (Deployment script)
-- `install-orderup.sh` (Installation script)
-- `validate-monitoring.sh` (Validation script)
-
-**Archive the rest** - they were useful for development and troubleshooting but are no longer needed for production use.
-
-This production template incorporates all the manual fixes we discovered during troubleshooting, ensuring reliable deployments without manual intervention.
+Nginx listens on ports 80 and 8080 (8080 also serves the `/nginx_status` page New Relic reads) and forwards `/api/` and `/health` to the Node app on port 3000; the Node app serves the Angular build itself. PM2 runs the backend as `orderup-backend` under `ec2-user`. Files live under `/opt/orderup/` (`backend/`, `angular-app/`, `dist/`, `logs/`, `database/`). New Relic's infrastructure agent runs as the `newrelic-infra` systemd service with the display name `orderup-<hostname>`. The first-boot log is `/var/log/user-data.log`. [EC2 Troubleshooting](../docs/troubleshooting/EC2_TROUBLESHOOTING.md) covers what to check when something is wrong.

@@ -6,6 +6,7 @@ module.exports = function createDemoRouter({
   environment,
   demoFailures,
   demoInvestigations,
+  demoWaitEvents,
   dashboardLinks,
 }) {
   const router = Router();
@@ -144,6 +145,40 @@ module.exports = function createDemoRouter({
     void demoInvestigations.syncSideEffects();
     res.json(state);
   });
+
+  // Scheduled database waits (server/demo-wait-events.js): arm them, or run one episode now.
+  if (demoWaitEvents) {
+    router.get("/demo/wait-events", (req, res) => {
+      res.json(demoWaitEvents.getState());
+    });
+
+    router.post("/demo/wait-events", jsonParser, (req, res) => {
+      const { mode, action, intervalSeconds } = req.body || {};
+      if (action === "run-now") {
+        // One episode straight away, whether or not the schedule is armed.
+        void demoWaitEvents.runEpisode();
+        logger.info({ ip: req.ip }, "Wait-events episode started by request");
+        return res.json(demoWaitEvents.getState());
+      }
+      if (mode !== "on" && mode !== "off") {
+        return res.status(400).json({
+          error:
+            'Body must be {mode: "on", intervalSeconds?: 30-3600}, {mode: "off"} or {action: "run-now"}',
+        });
+      }
+      demoWaitEvents.setManual(mode, intervalSeconds);
+      logger.info({ mode, ip: req.ip }, "Wait-events schedule set by manual override");
+      demoWaitEvents.sync();
+      res.json(demoWaitEvents.getState());
+    });
+
+    router.delete("/demo/wait-events", (req, res) => {
+      demoWaitEvents.clearManual();
+      logger.info({ ip: req.ip }, "Wait-events manual override cleared");
+      demoWaitEvents.sync();
+      res.json(demoWaitEvents.getState());
+    });
+  }
 
   return router;
 };

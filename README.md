@@ -42,11 +42,12 @@ OrderUp is a demonstration application that showcases modern web development pra
 - 🛒 **Shopping Cart**: Add, remove, and modify orders with real-time updates
 - 💳 **Checkout Process**: Streamlined ordering with customer information collection
 - ✅ **Order Confirmation**: Clear confirmation and thank you experience
+- 📍 **Live Order Tracking**: A stage-by-stage tracker (received, preparing, out for delivery, delivered) fed by a WebSocket, on the thank-you page and on My Orders
 
 ### Technical Features
 - ⚡ **Real-time Performance**: Optimized Angular components with efficient rendering
 - 🔍 **Search & Filter**: Dynamic restaurant and menu item filtering
-- 📊 **Analytics Ready**: Comprehensive event tracking and user behavior monitoring
+- 📊 **Analytics Ready**: The ordering funnel (browse, menu, cart, checkout, order) is reported as browser events, so drop-off can be charted in New Relic
 - 🛡️ **Security Hardened**: OWASP compliant with comprehensive secret management
 - 🚀 **Production Ready**: Full CI/CD pipeline with automated testing and deployment
 
@@ -59,7 +60,7 @@ OrderUp is a demonstration application that showcases modern web development pra
 
 ## 🎓 The Missions (Behind the Scenes)
 
-OrderUp is a teaching app. Turn on **Behind the scenes** (or visit any page with `?callouts=1`) and the ordinary ordering flow becomes a five-mission observability exercise — on every page a callout runs the same loop: **Try** an action, **Learn** what data it created, **Find** that data in New Relic with one click, **Check** yourself with a question only the data can answer. A progress strip tracks the five stops; the journey recap lives on How It Works.
+OrderUp is a teaching app. Turn on **Behind the scenes** (or visit any page with `?callouts=1`) and the ordinary ordering flow becomes a five-mission observability exercise — on every page a callout runs the same loop: **Try** an action, **Learn** what data it created, **Find** that data in New Relic with one click, **Check** yourself with a question only the data can answer. A progress strip tracks the five stops; the journey recap lives on the Missions page.
 
 | # | Mission | Page | The lesson |
 |---|---------|------|------------|
@@ -82,16 +83,19 @@ Perfect for new developers - get up and running in minutes:
 npm run setup:env
 # Edit .env with your values (copy from .env.example)
 
-# 2. Start simple development environment
+# 2. Build the website (the containers serve it from dist/)
+npm run build:angular
+
+# 3. Start simple development environment
 npm run docker:dev:simple
 
-# 3. Access your app
-# Main app: http://localhost
+# 4. Access your app
+# Main app: http://localhost  (or http://localhost:3000, the Node app directly)
 # Health check: http://localhost/health
 # API: http://localhost/api/restaurant
 ```
 
-**Need more features?** Try the full production simulation:
+**Need more features?** Try the full production simulation: the same app plus the real New Relic infrastructure agent and a PostgreSQL with monitoring extensions. Here only nginx is published, so use http://localhost (port 3000 is not reachable from your machine):
 ```bash
 npm run docker:dev:full
 ```
@@ -100,20 +104,24 @@ npm run docker:dev:full
 
 ### Option 2: GitHub Actions Deployment
 
-Deploy automatically to AWS EC2 using GitHub Actions:
+Deploy to AWS EC2 with the **deploy-cloudformation** workflow:
 
 1. **Fork this repository**
-2. **Configure GitHub Secrets**:
+2. **Configure GitHub Secrets** (Settings → Secrets and variables → Actions → Secrets):
    ```
-   AWS_ACCESS_KEY_ID=your-access-key
-   AWS_SECRET_ACCESS_KEY=your-secret-key
-   EC2_KEY_NAME=your-key-pair-name
-   EC2_PRIVATE_KEY=your-private-key-content
-   NEW_RELIC_API_KEY=your-newrelic-api-key
-   ALLOWED_CIDR_BLOCKS=["YOUR_IP/32"]
+   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+   DB_PASSWORD
+   NEW_RELIC_LICENSE_KEY, NEW_RELIC_API_KEY
    ```
-3. **Push to main branch** or manually trigger the deployment workflow
-4. **Access your application** at the provided EC2 instance IP
+3. **Configure GitHub Variables** (the Variables tab next to Secrets):
+   ```
+   EC2_KEY_NAME        an existing EC2 key pair in the region
+   NEW_RELIC_APP_ID    the APM entity GUID, for deployment markers
+   AWS_REGION          optional, defaults to us-west-2
+   ```
+   The full list, including the optional ones, is in the [Deployment Guide](./docs/deployment/DEPLOYMENT_GUIDE.md#deploying-with-github-actions).
+4. **Run the workflow with `stack`** (Actions tab) to create the infrastructure. After that, a push to `main` that changes `server/` or `angular-app/` deploys the code to staging by itself.
+5. **Access your application** at the load balancer address in the stack outputs
 
 ### Option 3: Local Development (Non-Docker)
 
@@ -134,16 +142,17 @@ npm run dev
 
 ## 🏗️ Architecture
 
-### Frontend (Angular 20)
-- **Components**: Modular UI components for restaurants, menu, checkout, and customer management
-- **Services**: Data management for cart, customer, and restaurant operations
+### Frontend (Angular 22)
+- **Components**: Modular UI components for restaurants, menu, checkout, order tracking and customer management
+- **Services**: Data management for cart, customer and restaurant operations, the live order status channel (`OrderStatusService`) and the ordering funnel events (`FunnelService`)
 - **Responsive Design**: Mobile-first approach with modern CSS
 - **TypeScript**: Type-safe development with strict compilation
 
 ### Backend (Node.js)
 - **Express Server**: RESTful API with structured routing
-- **Data Management**: In-memory storage with JSON data persistence
-- **Monitoring**: Integrated New Relic APM agent
+- **Data Management**: PostgreSQL in Docker and on EC2, with an in-memory JSON fallback when no database is available
+- **Live Order Status**: A WebSocket at `/api/orders/stream`, fed by the order-status worker
+- **Monitoring**: Integrated New Relic APM agent with custom attributes, events and metrics
 - **Security**: Environment-based configuration and header protection
 
 ### Infrastructure
@@ -164,7 +173,7 @@ orderup/
 │
 ├── angular-app/                # 🅰️ Angular frontend application
 ├── server/                     # 🌐 Node.js backend server
-├── docker/                     # 🐳 Docker configurations (simplified)
+├── docker/                     # 🐳 Docker configurations (simple and full)
 ├── docs/                       # 📚 Organized documentation
 │   ├── setup/                 # 🛠️ Setup and configuration guides
 │   ├── deployment/            # 🚀 Deployment documentation
@@ -189,7 +198,7 @@ orderup/
 ### 🎯 Quick Access by Topic
 
 #### �️ Setup & Configuration
-- **[Setup Guide](./docs/setup/SETUP_GUIDE.md)** - Complete project setup and dependencies
+- **[Setup Guide](./docs/setup/SETUP_GUIDE.md)** - The optional HTTPS development environment (uses an archived script)
 - **[Database Guide](./docs/setup/DATABASE_GUIDE.md)** - PostgreSQL configuration and management
 - **[Environment Variables](./docs/setup/ENVIRONMENT_VARIABLES.md)** - Configuration and secrets
 - **[DevContainer Setup](./docs/setup/DEVCONTAINER_SETUP.md)** - VS Code development containers
@@ -206,6 +215,7 @@ orderup/
 - **[New Relic Setup Scripts](./newrelic/README.md)** - Dashboard, service levels, alerts and workload
 - **[New Relic Infrastructure Setup](./docs/NEW_RELIC_INFRA_SETUP.md)** - Host and database monitoring
 - **[Load Testing](./docs/LOAD_TESTING.md)** - Performance testing with Locust
+- **[Testing the front end](./angular-app/TESTING.md)** - What to test, and how the Angular specs are built
 - **[Security](./docs/SECURITY.md)** - Practices, checks and the open findings from the security review
 
 #### 🔧 Troubleshooting
@@ -221,7 +231,7 @@ orderup/
 - **AWS Deployment**: Use the **deploy-cloudformation** workflow (Actions tab). A push to `main` that changes `server/` or `angular-app/` deploys the code to staging. See [Deployment Guide](./docs/deployment/DEPLOYMENT_GUIDE.md#deploying-with-github-actions)
 - **Security Validation**: Run `npm run security:validate` for comprehensive security checks
 - **Load Testing**: Execute `npm run loadtest` for performance testing
-- **Deployment**: Use `npm run deploy` for full deployment workflow
+- **Deployment helper**: `./scripts/deploy.sh -h` lists the options (build, deployment marker, start, load test)
 - **Environment Setup**: Copy `.env.example` to `.env` and configure your settings
 - **AWS Cleanup**: See [Removing a deployment](./docs/deployment/DEPLOYMENT_GUIDE.md#removing-a-deployment)
 
@@ -235,7 +245,7 @@ orderup/
 ### Project Structure
 ```
 orderup/
-├── angular-app/          # Angular 20 frontend application
+├── angular-app/          # Angular 22 frontend application
 │   ├── src/app/         # Application components and services
 │   └── public/          # Static assets and icons
 ├── server/              # Node.js/Express backend
@@ -256,16 +266,21 @@ npm run start           # Production start with New Relic
 
 #### Docker Operations
 ```bash
-npm run docker:build    # Build Docker image
-npm run docker:run      # Run container with environment file
-npm run docker:with-secrets  # Interactive deployment with secrets
+npm run docker:dev:simple    # App, PostgreSQL and nginx
+npm run docker:dev:full      # Plus the New Relic infrastructure agent and database monitoring
+npm run docker:status        # What is running
+npm run docker:logs          # Follow the logs
+npm run docker:stop          # Stop everything
+npm run docker:clean         # Stop and delete containers and volumes (the database is lost)
 ```
 
 #### Deployment & Testing
 ```bash
-npm run deploy          # Full deployment workflow
-npm run loadtest        # Run load tests with Locust
+./scripts/deploy.sh -h       # Build, mark a deployment in New Relic, start (-b, -m, -s, -l)
+npm run loadtest             # Run load tests with Locust
 npm run security:validate    # Run security validation
+cd angular-app && npm run test:ci   # Angular unit tests (see angular-app/TESTING.md)
+node --test server/          # Server tests
 ```
 
 ## 🔧 Configuration
@@ -289,104 +304,27 @@ PORT=3000
 - **Environment variable injection** for configuration
 - **.dockerignore** for build context optimization
 
-### DevContainer & Docker Compose Configurations
+### Docker Compose Configurations
 
-OrderUp includes multiple Docker Compose configurations to support different development environments:
+Two compose files in `docker/` are maintained. Both read `.env` from the repository root; the npm scripts pass it with `--env-file .env`, which Compose needs to fill in values such as `DB_PASSWORD`.
 
-#### Main Configuration (`docker-compose.yml`)
-- **Purpose**: Production-ready setup with full New Relic monitoring
-- **Features**: Complete infrastructure monitoring, nginx reverse proxy, PostgreSQL
-- **Best for**: Host development, CI/CD pipelines, production deployment
+| File | Start it with | Runs |
+|---|---|---|
+| `docker-compose.dev-simple.yml` | `npm run docker:dev:simple` | The app (`orderup`), PostgreSQL 16 (`db`) and nginx. Ports 80 and 3000. |
+| `docker-compose.arm64.yml` | `npm run docker:dev:full` | The same, plus PostgreSQL with the monitoring extensions and the real New Relic infrastructure agent (`newrelic-infra`, pinned to the version the EC2 hosts use). Only nginx is published (80 and 443). |
 
-#### DevContainer Fallback (`docker-compose.dev.yml`)
-- **Purpose**: Simplified setup for dev containers with limited privileges
-- **Features**: Basic New Relic monitoring without privileged access requirements
-- **Best for**: GitHub Codespaces, VS Code dev containers, restricted environments
+The infrastructure agent in the full setup (the `newrelic/infrastructure-bundle` image) runs privileged, with the host's PID namespace, and mounts the host filesystem and Docker socket read-only. On Docker Desktop the host it reports is the Docker VM, not your computer. It also runs the nginx and PostgreSQL integrations against the `nginx` and `db` containers, configured by `newrelic-integrations/docker/`. Slow queries, individual queries, execution plans, wait events and blocking sessions are all reported: the database image is built with Percona's `pg_stat_monitor` and `pg_wait_sampling`, and an instructor-armed generator creates the waits (see [New Relic Integrations](./docs/NEW_RELIC_INTEGRATIONS_SETUP.md)).
 
-#### Load Testing (`docker-compose.loadtest.yml`)
-- **Purpose**: Isolated load testing with Locust
-- **Features**: Performance testing against running application
-- **Best for**: Load testing, performance benchmarking
-
-#### Using Fallback Configurations in DevContainers
-
-**Method 1: Override with specific compose file**
-```bash
-# Use dev container friendly configuration
-docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up -d
-
-# Use load testing configuration
-docker compose -f docker/docker-compose.loadtest.yml up -d
-```
-
-**Method 2: Environment-specific startup**
-```bash
-# For restricted environments (like dev containers)
-export DOCKER_COMPOSE_ENV=dev
-npm run docker:compose:dev
-
-# For load testing
-npm run loadtest:docker
-```
-
-**Method 3: Manual container selection**
-```bash
-# Start only specific services from dev config
-docker compose -f docker/docker-compose.dev.yml up newrelic-infra-simple -d
-
-# Start load testing
-docker compose -f docker/docker-compose.loadtest.yml up locust
-```
-
-#### DevContainer Configuration Differences
-
-| Feature                | Main Config                | DevContainer Config        |
-| ---------------------- | -------------------------- | -------------------------- |
-| **Privileged Access**  | ✅ Full host access         | ❌ Restricted for security  |
-| **Process Monitoring** | ✅ Enabled                  | ❌ Disabled                 |
-| **Host Volume Mounts** | ✅ Full host filesystem     | ❌ Docker socket only       |
-| **Network Mode**       | Bridge with custom network | Bridge mode                |
-| **New Relic Features** | Full monitoring suite      | Basic container monitoring |
-
-#### Troubleshooting DevContainer Issues
-
-If you encounter issues with the main configuration in a dev container:
-
-1. **Permission Errors**: Use the dev configuration
-   ```bash
-   docker compose -f docker/docker-compose.dev.yml up -d
-   ```
-
-2. **Privileged Access Denied**: The dev config removes privileged requirements
-   ```bash
-   # Check what's different
-   grep -A 10 "privileged\|cap_add\|pid:" docker/docker-compose.yml
-   # vs
-   grep -A 10 "network_mode\|volumes:" docker/docker-compose.dev.yml
-   ```
-
-3. **Volume Mount Issues**: Dev config uses minimal volume mounts
-   ```bash
-   # Only mounts Docker socket instead of full host
-   docker compose -f docker/docker-compose.dev.yml logs newrelic-infra-simple
-   ```
-
-#### Adding to Package.json Scripts
-
-Add these convenience scripts to your `package.json`:
-
-```json
-{
-  "scripts": {
-    "docker:compose:dev": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up -d",
-    "docker:compose:loadtest": "docker compose -f docker/docker-compose.loadtest.yml up",
-    "docker:dev:logs": "docker compose -f docker/docker-compose.dev.yml logs -f",
-    "docker:dev:down": "docker compose -f docker/docker-compose.dev.yml down"
-  }
-}
-```
+The earlier compose files (`docker-compose.yml`, the dev and dev-container overrides, the load test setup) are kept in `docker/archive/` and are not maintained. To work in a VS Code dev container, see [DevContainer Setup](./docs/setup/DEVCONTAINER_SETUP.md).
 
 ## 🧪 Testing & Quality
+
+### Unit Tests
+```bash
+cd angular-app && npm run test:ci    # Angular components and services (Karma + Jasmine, headless Chrome)
+node --test server/                  # Server routes, worker and WebSocket stream
+```
+[angular-app/TESTING.md](./angular-app/TESTING.md) explains what is worth testing here and how the specs are put together.
 
 ### Load Testing
 Built-in Locust configuration for performance testing:
@@ -409,6 +347,18 @@ npm run security:docker     # Dockerfile security scanning
 - **Browser Monitoring**: Real user monitoring and page load times
 - **Custom Metrics**: Business-specific monitoring and alerting
 - **Deployment Tracking**: Automated deployment markers
+
+### What the App Reports
+| Source | Data |
+|---|---|
+| Browser agent | `PageView`, `AjaxRequest`, `BrowserInteraction`, `JavaScriptError` and `WebSocket` events; session replay is off by default |
+| Funnel `PageAction`s | `restaurants_viewed`, `menu_viewed`, `add_to_cart`, `checkout_started`, `order_placed`, plus `restaurant_filter_applied` and `cart_item_removed` |
+| Tracker `PageAction`s | `order_tracker_status` and `order_tracker_connection`: each status shown, and drops, retries and fallback to polling |
+| APM | Transactions with custom attributes (`orderId`, `restaurant`, `demoCode` and more), errors, distributed traces |
+| Custom events | `ItemsOrdered`, `OrderPipelineSample` (order-status worker), `OrderStreamSample` and `OrderStreamPush` (the WebSocket) |
+| Custom metrics | `Custom/total` and `Custom/<restaurant>/total` |
+
+[New Relic Demo Features](./docs/NEW_RELIC_DEMO.md) explains each of these and the queries behind the "Behind the scenes" callouts.
 
 ### Key Metrics
 - Response times and throughput

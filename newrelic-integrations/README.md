@@ -1,175 +1,26 @@
-# New Relic Infrastructure Integrations for OrderUp
+# New Relic integration files
 
-This directory contains New Relic infrastructure integration configurations for monitoring the OrderUp application stack.
+Reference copies of the configuration the New Relic infrastructure agent uses on the **EC2 deployment**, to monitor nginx and PostgreSQL and to forward logs.
 
-## 🔧 Configured Integrations
+| File | For | Notes |
+|---|---|---|
+| `nginx-config.yml` | `nri-nginx` | Reads nginx's status page at `http://127.0.0.1:8080/nginx_status`. The access log is JSON, which this integration's log parser cannot read, so log-derived metrics are off; status splits come from the forwarded log attributes instead. |
+| `postgres-config.yml` | `nri-postgresql` | Connects to `localhost:5432` as the read-only `newrelic` user, with its password from `NEWRELIC_DB_PASSWORD`. |
+| `orderup-logs.yml` | Log forwarding | Tails the PM2 backend logs under `/opt/orderup/logs`, the nginx access and error logs and the PostgreSQL logs. |
 
-### 1. Infrastructure Agent (`newrelic-infra`)
-- **Purpose**: Monitors host system, Docker containers, and processes
-- **Features**:
-  - Docker container monitoring
-  - Process metrics collection
-  - Host system monitoring
-  - Custom attributes for filtering
+## What runs where
 
-### 2. Nginx Integration (`newrelic-nginx`)
-- **Purpose**: Monitors nginx reverse proxy performance
-- **Metrics Collected**:
-  - Request throughput and response times
-  - Connection statistics
-  - HTTP status codes
-  - Upstream server health
-- **Configuration**: `nginx-config.yml`
-- **Status Endpoint**: `http://nginx:80/nginx_status`
+**On EC2**, `cloudformation/install-orderup.sh` writes the real files (under `/etc/newrelic-infra/integrations.d/` and `logging.d/`), with the generated `newrelic` database password filled in. Nothing copies the three files above there. If you change the monitoring, change `install-orderup.sh` first and keep these copies in step.
 
-### 3. PostgreSQL Integration (`newrelic-postgres`)
-- **Purpose**: Monitors PostgreSQL database performance
-- **Metrics Collected**:
-  - Connection pool statistics
-  - Query performance
-  - Database size and growth
-  - Lock contention metrics
-  - Custom OrderUp business metrics (restaurant/menu counts)
-- **Configuration**: `postgres-config.yml`
-- **Custom Queries**: Tracks OrderUp-specific table row counts
+**In the local full Docker setup**, the files in [`docker/`](./docker/) are what run: `nginx-config.yml` (reads `http://nginx/nginx_status`) and `postgresql-config.yml` (connects to the `db` service with the credentials from `.env`). `docker/docker-compose.arm64.yml` mounts that folder into the `newrelic/infrastructure-bundle` container, which includes `nri-nginx` and `nri-postgresql`. The agent replaces `{{DB_USER}}`, `{{DB_PASSWORD}}` and `{{DB_NAME}}` in the file with its environment variables, which compose sets from `.env`. (The plain `newrelic/infrastructure` image has neither integration.)
 
-## 🚀 Getting Started
-
-### Prerequisites
-- New Relic account with license key
-- Docker and Docker Compose
-- OrderUp application running
-
-### Setup Steps
-
-1. **Configure New Relic License Key**
-   ```bash
-   # Add to your .env file
-   NEW_RELIC_LICENSE_KEY=your_license_key_here
-   ```
-
-2. **Start the Integrations**
-   ```bash
-   # Start all services including New Relic integrations
-   docker-compose up -d
-   
-   # Or start specific integrations
-   docker-compose up -d newrelic-infra newrelic-nginx newrelic-postgres
-   ```
-
-3. **Verify Integration Status**
-   ```bash
-   # Check container status
-   docker-compose ps
-   
-   # Check logs for any errors
-   docker-compose logs newrelic-infra
-   docker-compose logs newrelic-nginx
-   docker-compose logs newrelic-postgres
-   ```
-
-## 📊 Monitoring Dashboards
-
-### Infrastructure
-- **Host Metrics**: CPU, memory, disk, network
-- **Container Metrics**: Docker containers, resource usage
-- **Process Metrics**: Application processes, resource consumption
-
-### Nginx
-- **Performance**: Request rate, response times, error rates
-- **Connections**: Active connections, request/response ratios
-- **Upstream Health**: Backend server status and response times
-
-### PostgreSQL
-- **Database Performance**: Query performance, slow queries, locks
-- **Connection Pool**: Active connections, idle connections, wait times
-- **Business Metrics**: Restaurant count, menu items, orders, customers
-- **Storage**: Database size, table sizes, index usage
-
-## 🔧 Configuration Details
-
-### Custom Attributes
-All integrations include custom attributes for easier filtering:
-- `environment`: "docker-compose"
-- `application`: "orderup"
-- Service-specific attributes (service, role, etc.)
-
-### Security
-- Database password is mounted via Docker secrets
-- Nginx status endpoint is restricted to internal networks
-- All communications use internal Docker networks
-
-### Intervals
-- **Infrastructure**: Real-time monitoring
-- **Nginx**: 30-second intervals
-- **PostgreSQL**: 30-second intervals
-
-## 🔍 Troubleshooting
-
-### Common Issues
-
-1. **Integration Not Appearing in New Relic**
-   - Verify license key is correct
-   - Check container logs for errors
-   - Ensure network connectivity
-
-2. **Nginx Status Endpoint Not Available**
-   - Verify nginx configuration includes stub_status
-   - Check nginx container is running
-   - Ensure status endpoint is accessible
-
-3. **PostgreSQL Connection Issues**
-   - Verify database credentials
-   - Check PostgreSQL container is running
-   - Ensure database secrets are mounted correctly
-
-### Useful Commands
+## Checking it on EC2
 
 ```bash
-# Test nginx status endpoint
-curl http://localhost/nginx_status
-
-# Check PostgreSQL connection
-docker-compose exec db psql -U orderup_user -d orderup -c "SELECT version();"
-
-# View integration logs
-docker-compose logs -f newrelic-infra
-docker-compose logs -f newrelic-nginx
-docker-compose logs -f newrelic-postgres
-
-# Restart specific integration
-docker-compose restart newrelic-nginx
+sudo systemctl status newrelic-infra
+sudo journalctl -u newrelic-infra -n 50
+ls /etc/newrelic-infra/integrations.d/
+/var/db/newrelic-infra/newrelic-integrations/bin/nri-nginx -pretty
 ```
 
-## 📈 Custom Metrics
-
-### OrderUp Business Metrics
-The PostgreSQL integration includes custom queries that track:
-- Total restaurants in the system
-- Total menu items across all restaurants
-- Total orders placed
-- Total customers registered
-
-These metrics help monitor the business side of the application alongside technical performance.
-
-## 🔒 Security Considerations
-
-- Database passwords are handled via Docker secrets
-- Nginx status endpoint is restricted to internal networks
-- All integrations run in isolated containers
-- No sensitive data is exposed in logs or metrics
-
-## 🚀 Production Considerations
-
-For production deployment:
-1. Use external secrets management (AWS Secrets Manager, HashiCorp Vault)
-2. Configure alerts and notifications
-3. Set up custom dashboards for business metrics
-4. Implement log aggregation and analysis
-5. Consider using New Relic's Kubernetes integration for container orchestration
-
-## 📚 Additional Resources
-
-- [New Relic Infrastructure Documentation](https://docs.newrelic.com/docs/infrastructure/)
-- [New Relic Nginx Integration](https://docs.newrelic.com/docs/infrastructure/host-integrations/host-integrations-list/nginx-monitoring-integration/)
-- [New Relic PostgreSQL Integration](https://docs.newrelic.com/docs/infrastructure/host-integrations/host-integrations-list/postgresql-monitoring-integration/)
+`cloudformation/validate-monitoring.sh -e staging` runs these checks for you, and `diagnose-nginx-monitoring.sh` and `diagnose-postgresql-monitoring.sh` dig deeper. See [New Relic Infrastructure Setup](../docs/NEW_RELIC_INFRA_SETUP.md) and [New Relic Integrations](../docs/NEW_RELIC_INTEGRATIONS_SETUP.md).

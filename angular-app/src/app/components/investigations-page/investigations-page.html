@@ -12,9 +12,11 @@
     under the investigation's name. A correct answer opens the next checkpoint.
     One investigation is live at a time — when one is, the banner under the menu names it,
     and its checkpoints open below. The rest wait their turn.
+    Each checkpoint's evidence query and question appear with <strong>Behind the scenes</strong>
+    (top right); a checkpoint offers to switch it on if it is off.
   </p>
 
-  @for (def of investigations; track def.slug) {
+  @for (def of investigations(); track def.slug) {
     <app-investigation [def]="def" />
   }
 </div>

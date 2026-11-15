@@ -30,7 +30,16 @@ pg_stat_statements.max = 10000
 pg_stat_statements.track = all
 pg_stat_statements.save = on
 pg_stat_statements.track_utility = on
-pg_stat_statements.track_planning = on
+# track_planning stays off: with it on, pg_stat_statements keeps rows with
+# calls = 0, and the New Relic PostgreSQL integration divides by calls when it
+# reads slow queries, so it fails with "pq: division by zero (22012)" and
+# reports no PostgresSlowQueries, PostgresIndividualQueries or execution plans.
+pg_stat_statements.track_planning = off
+
+# pg_stat_monitor (built into the image; see docker/postgres-monitoring.dockerfile):
+# record each query's execution plan, which the New Relic integration reads for
+# PostgresExecutionPlanMetrics.
+pg_stat_monitor.pgsm_enable_query_plan = on
 
 # Additional performance monitoring settings
 log_statement_stats = off

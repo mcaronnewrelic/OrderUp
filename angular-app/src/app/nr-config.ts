@@ -38,6 +38,29 @@ export interface DemoInvestigationState {
   armed: { slug: string; seconds?: number } | null;
 }
 
+/** The scheduled database wait-events generator (server/demo-wait-events.js). */
+export interface DemoWaitEventsState {
+  source: 'manual' | 'env' | 'none';
+  enabled: boolean;
+  /** False when the server runs without a database; the generator needs one. */
+  databaseAvailable: boolean;
+  intervalSeconds: number;
+  episodeSeconds: number;
+  /** An episode is in progress right now. */
+  running: boolean;
+  /** Episodes run since the server started. */
+  episodes: number;
+  nextEpisodeAt: string | null;
+  lastEpisode: {
+    startedAt: string;
+    finishedAt: string;
+    durationMs: number;
+    ok: boolean;
+    waiters?: number;
+    error?: string;
+  } | null;
+}
+
 const NR_BASE_URL = 'https://one.newrelic.com';
 const CALLOUTS_STORAGE_KEY = 'orderup-nr-callouts';
 const CALLOUTS_SHOWN_BY_DEFAULT = false;
@@ -55,6 +78,7 @@ export class NrConfigService {
   readonly demoState = signal<DemoFailureState | null>(null);
   readonly armedInvestigation = signal<ArmedInvestigation | null>(null);
   readonly investigationState = signal<DemoInvestigationState | null>(null);
+  readonly waitEventsState = signal<DemoWaitEventsState | null>(null);
 
   constructor(private http: HttpClient) {
     http.get<{ accountId: string | null; browserEntityGuid: string | null; armedScenario: ArmedScenario | null; armedInvestigation: ArmedInvestigation | null }>('/api/nr-config')
@@ -180,6 +204,47 @@ export class NrConfigService {
   clearInvestigationOverride(): void {
     this.http.delete<DemoInvestigationState>('/api/demo/investigations').subscribe({
       next: state => this.applyInvestigationState(state),
+      error: () => {}
+    });
+  }
+
+  // ---- database wait events (scheduled generator) -------------------------
+
+  refreshWaitEventsState(): void {
+    this.http.get<DemoWaitEventsState>('/api/demo/wait-events').subscribe({
+      next: state => this.waitEventsState.set(state),
+      error: () => {}
+    });
+  }
+
+  /** Turn the schedule on (instructor override), optionally every `intervalSeconds`. */
+  armWaitEvents(intervalSeconds?: number): void {
+    this.http.post<DemoWaitEventsState>('/api/demo/wait-events', { mode: 'on', intervalSeconds }).subscribe({
+      next: state => this.waitEventsState.set(state),
+      error: () => {}
+    });
+  }
+
+  /** Turn the schedule off (instructor override), until cleared. */
+  disarmWaitEvents(): void {
+    this.http.post<DemoWaitEventsState>('/api/demo/wait-events', { mode: 'off' }).subscribe({
+      next: state => this.waitEventsState.set(state),
+      error: () => {}
+    });
+  }
+
+  /** Run a single episode now, whether or not the schedule is on. */
+  runWaitEventsNow(): void {
+    this.http.post<DemoWaitEventsState>('/api/demo/wait-events', { action: 'run-now' }).subscribe({
+      next: state => this.waitEventsState.set(state),
+      error: () => {}
+    });
+  }
+
+  /** Clear the manual override, back to the server environment. */
+  clearWaitEventsOverride(): void {
+    this.http.delete<DemoWaitEventsState>('/api/demo/wait-events').subscribe({
+      next: state => this.waitEventsState.set(state),
       error: () => {}
     });
   }

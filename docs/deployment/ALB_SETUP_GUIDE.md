@@ -1,6 +1,6 @@
 # Application Load Balancer Setup Guide
 
-This document explains the Application Load Balancer (ALB) configuration added to the FoodMe CloudFormation template to provide a stable public endpoint.
+This document explains the Application Load Balancer (ALB) configuration added to the OrderUp CloudFormation template to provide a stable public endpoint.
 
 ## Overview
 
@@ -15,7 +15,7 @@ The ALB provides several key benefits:
 
 ### Before ALB
 ```
-Internet → EC2 Public IP → FoodMe Application
+Internet → EC2 Public IP → OrderUp Application
 ```
 
 ### After ALB
@@ -26,7 +26,7 @@ Internet → ALB → Target Groups → EC2 Instance (Private)
 ## Infrastructure Components
 
 ### 1. **Application Load Balancer**
-- **Name**: `{Environment}-foodme-alb`
+- **Name**: `{Environment}-orderup-alb`
 - **Scheme**: Internet-facing
 - **Subnets**: Two subnets across different AZs for high availability
 - **Security Group**: Allows HTTP/HTTPS from internet
@@ -101,13 +101,13 @@ APIUrl: # API URL with port 3000
 ### 1. **Initial Deployment**
 ```bash
 cd cloudformation
-./deploy-stack.sh staging t3.medium your-key-pair-name your-db-password
+./deploy-production.sh staging t3.medium your-key-pair-name your-db-password
 ```
 
 ### 2. **Get ALB DNS Name**
 ```bash
 aws cloudformation describe-stacks \
-  --stack-name foodme-staging \
+  --stack-name orderup-staging \
   --query 'Stacks[0].Outputs[?OutputKey==`LoadBalancerDNS`].OutputValue' \
   --output text
 ```
@@ -117,7 +117,7 @@ aws cloudformation describe-stacks \
 # Check ALB target health
 aws elbv2 describe-target-health \
   --target-group-arn $(aws cloudformation describe-stacks \
-    --stack-name foodme-staging \
+    --stack-name orderup-staging \
     --query 'Stacks[0].Outputs[?OutputKey==`ApplicationTargetGroupArn`].OutputValue' \
     --output text)
 ```
@@ -211,7 +211,7 @@ To add high availability:
 ```bash
 # Unhealthy targets
 aws cloudwatch put-metric-alarm \
-  --alarm-name "foodme-unhealthy-targets" \
+  --alarm-name "orderup-unhealthy-targets" \
   --metric-name UnHealthyHostCount \
   --namespace AWS/ApplicationELB \
   --statistic Sum \
@@ -237,7 +237,7 @@ If any external services reference the EC2 public IP:
 
 ### 1. **DNS Management**
 - Use Route 53 to create a CNAME record pointing to ALB DNS
-- Example: `foodme-staging.yourdomain.com` → ALB DNS
+- Example: `orderup-staging.yourdomain.com` → ALB DNS
 
 ### 2. **SSL/TLS Termination**
 Future enhancement: Add HTTPS listener with SSL certificate
@@ -261,4 +261,4 @@ HTTPSListener:
 - Use specific health check endpoints that verify full application stack
 - Monitor health check failure patterns
 
-This ALB setup provides a robust, scalable foundation for the FoodMe application with stable endpoints and improved security.
+This ALB setup provides a robust, scalable foundation for the OrderUp application with stable endpoints and improved security.

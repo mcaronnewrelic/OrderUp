@@ -1,6 +1,8 @@
 # Automated Load Testing with CloudFormation
 
-This guide explains how to deploy and manage automated load testing for the FoodMe application using AWS ECS Fargate and EventBridge.
+> **Legacy template, archived.** This describes the ECS Fargate load test defined in `cloudformation/archive/foodme-stack.yaml`, with the scripts that build and manage it (`deploy-stack.sh`, `build-loadtest-image.sh`, `manage-loadtest.sh`). They are in `cloudformation/archive/` now, and they look for their sibling files in their own folder, so the commands below only work if you first move those files back into `cloudformation/` (`git mv cloudformation/archive/<file> cloudformation/`). The production template (`orderup-production-stack.yaml`) that the GitHub workflow and `deploy-production.sh` use has no load test resources, and nothing deploys `foodme-stack.yaml` any more. Resource names below (`foodme-loadtest`) are the ones in that file. For load testing today, run Locust from your machine: see [Load Testing](./LOAD_TESTING.md).
+
+This guide explains how to deploy and manage automated load testing for the OrderUp application using AWS ECS Fargate and EventBridge.
 
 ## Overview
 
@@ -54,7 +56,7 @@ The load test runs with the following default parameters:
 - **Duration**: 30 minutes
 - **Users**: 10 concurrent users
 - **Spawn Rate**: 2 users per second
-- **Target**: Your deployed FoodMe application
+- **Target**: Your deployed OrderUp application
 - **Test Mix**: 75% restaurant browsing, 25% order placement
 
 ### Customizing Load Test Parameters
@@ -149,7 +151,7 @@ Each test execution generates:
 
 ### New Relic Integration
 
-If New Relic is configured for your FoodMe application, load test traffic will appear in your APM dashboard, allowing you to:
+If New Relic is configured for your OrderUp application, load test traffic will appear in your APM dashboard, allowing you to:
 - Monitor application performance under load
 - Identify bottlenecks and errors
 - Track response times and throughput
