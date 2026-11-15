@@ -54,7 +54,7 @@ This app's own queries never wait on anything, so the last two stay empty unless
 
 ### Why the AWS charts are empty
 
-Two separate causes, found by running the integration against the local database:
+Three separate causes, found by running the integration against the local database and on the instance:
 
 1. **`track_planning` broke slow-query collection (fixed in the scripts).** Both monitoring setup scripts turned on `pg_stat_statements.track_planning`. With it on, `pg_stat_statements` keeps rows whose `calls` is 0, and the integration divides by `calls` when it reads slow queries. It fails with `Error fetching slow-running queries: pq: division by zero (22012)` and sends **no** query events at all. The error is only in the agent's log, not in any data. `db/scripts/01-setup-monitoring-config.sh` and `cloudformation/install-orderup.sh` now set it to `off`, which covers new databases. An **existing** database needs the change applied by hand:
 
@@ -65,7 +65,13 @@ Two separate causes, found by running the integration against the local database
 
    No restart is needed. Within a minute or two, `SELECT count(*) FROM PostgresSlowQueries SINCE 10 minutes ago` in New Relic should return rows. (Locally, with the stock database image, this was verified: before, 0 slow-query events and the division-by-zero error; after, 40 events in ten minutes.)
 
-2. **`pg_stat_monitor` is not installed on EC2 (not fixed there).** The EC2 PostgreSQL package does not include Percona's `pg_stat_monitor`, so on AWS `PostgresIndividualQueries` and `PostgresExecutionPlanMetrics` stay empty, and the "query details" and "execution plans" charts with them. The local Docker database now has it (see below), which shows what the instance needs: build or package the extension for the instance's PostgreSQL 16, add it to `shared_preload_libraries` next to `pg_stat_statements`, **restart PostgreSQL**, run `CREATE EXTENSION pg_stat_monitor` in the `orderup` database, and turn on `pg_stat_monitor.pgsm_enable_query_plan`. That has not been done on EC2, and the install script does not do it yet. Even then, only queries slower than `QUERY_MONITORING_RESPONSE_TIME_THRESHOLD` ms (default 1) become individual-query and plan events, and this app's queries are all faster, so the charts fill only when something slow runs (for example an armed "It's not checkout" investigation) unless you lower the threshold.
+2. **`pg_stat_monitor` and `pg_wait_sampling` were not installed on EC2 (fixed in the install script for new instances).** Neither is packaged for Amazon Linux 2023, so the instance had no individual-query, execution-plan or wait-event data. `install-orderup.sh` now compiles both from source (`pg_stat_monitor` 2.4.0, `pg_wait_sampling` 1.1.11, against the instance's `postgresql16-server-devel`), preloads them next to `pg_stat_statements`, creates them in the `orderup` database and turns on plan capture. I ran that exact step in a clean Amazon Linux 2023 container: both built, PostgreSQL started with all three preloaded, and the restricted `newrelic` monitoring role could read all their views.
+
+   It is **best effort**. A library is preloaded only if its `.so` file was really built, because PostgreSQL will not start with a missing one in `shared_preload_libraries`. If a build fails, the install logs a `WARNING`, skips that extension and carries on; the build output is in `/var/log/pg-extension-build.log` on the instance. Building needs outbound access to GitHub, and leaves the compilers on the instance.
+
+   It only runs when an instance is created. For an instance that already exists, rebuild it (run the `stack` action with a new `config_version`). The integration also sets `QUERY_MONITORING_RESPONSE_TIME_THRESHOLD: 0`, so every query becomes an individual-query event instead of only those slower than 1 ms; this app's queries are all faster than that.
+
+3. **`tablefunc` was missing, so there were no lock counters (fixed).** `COLLECT_DB_LOCK_METRICS` needs PostgreSQL's `tablefunc` extension (`crosstab()`); without it the integration only warns `Crosstab function not available; database lock metric gathering not possible`. The install script and the local init script now create it. For a running instance: `sudo -u postgres psql -d orderup -c "CREATE EXTENSION IF NOT EXISTS tablefunc"`; no restart. It adds eight counters to `PostgresqlDatabaseSample`, one per lock mode: `db.locks.accessShareLock`, `rowExclusiveLock`, `exclusiveLock`, `shareLock` and four more. There is no counter named "waiting"; for who is waiting on whom use `PostgresBlockingSessions`, and for waits by type `PostgresWaitEvents`.
 
 To check from New Relic which events a host sends:
 
@@ -124,4 +130,4 @@ SELECT blocked_query, blocking_query FROM PostgresBlockingSessions SINCE 30 minu
 SELECT * FROM DemoWaitEpisode SINCE 30 minutes ago
 ```
 
-The integration takes a snapshot every 30 seconds and an episode lasts about 20, so not every episode is caught; with an episode every minute or two there is a steady trickle of data. On AWS the generator works the same way, but wait events also need `pg_wait_sampling` on the instance, which is not installed there yet.
+The integration takes a snapshot every 30 seconds and an episode lasts about 20, so not every episode is caught; with an episode every minute or two there is a steady trickle of data. On AWS the generator works the same way, and a newly built instance has `pg_wait_sampling` too (see above).

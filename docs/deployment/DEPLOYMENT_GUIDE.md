@@ -20,7 +20,7 @@ Pull requests that change `cloudformation/` get template and script checks only 
 
 | Variable | Needed for |
 |---|---|
-| `EC2_KEY_NAME` | The name of an existing EC2 key pair in the region (the `stack` action). |
+| `EC2_KEY_NAME` | The name of an existing EC2 key pair in the region (the `stack` action), exactly as EC2 lists it under Key Pairs: `nru`, not the `nru.pem` file name. A `.pem` suffix fails with "parameter value ... for parameter name KeyPairName does not exist". Key pairs are per region, so it must exist in `AWS_REGION`. |
 | `NEW_RELIC_APP_ID` | The APM entity GUID, for the deployment marker after a `code` deploy. |
 | `AWS_REGION` | Optional. Defaults to `us-west-2`. |
 | `CERTIFICATE_ARN` | Optional. An ACM certificate for the load balancer's HTTPS listener. |
